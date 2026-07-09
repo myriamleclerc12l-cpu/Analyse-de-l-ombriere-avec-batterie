@@ -9,9 +9,8 @@ Created on Thu Jul  9 11:16:21 2026
 
 # -*- coding: utf-8 -*-
 """
-Application Streamlit pour le dimensionnement Solaire et Batterie
-Analyse 100% basée sur des données réelles TE13 (Siège + Ombrière)
-Inclut l'analyse de sensibilité pour maximiser l'énergie économisée.
+Application Streamlit dont l'objectif est de visualiser les courbes de production de l'ombrière ainsi que les courbes de charges du siège du TE13. *
+Grâce aux données obtenues, il est maintenant possible de trouver un dimensionnement adapté pour la batterie associée au système. 
 """
 
 import streamlit as st
@@ -20,9 +19,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# ==========================================
-# 1. PARAMÈTRES ET CONFIGURATION
-# ==========================================
+
+#  PARAMÈTRES ET CONFIGURATION
+
 st.set_page_config(page_title="Dashboard Autoconsommation", layout="wide")
 
 st.markdown("""
@@ -37,9 +36,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 2. FONCTIONS DE CHARGEMENT DES DONNÉES
-# ==========================================
+
+#  FONCTIONS DE CHARGEMENT DES DONNÉES
+
 
 @st.cache_data
 def charger_donnees_reelles(file_conso, file_prod):
@@ -71,9 +70,8 @@ def charger_donnees_reelles(file_conso, file_prod):
     
     return df
 
-# ==========================================
-# 3. MOTEUR DE SIMULATION BATTERIE (OPTIMISÉ)
-# ==========================================
+# MOTEUR DE SIMULATION BATTERIE 
+
 
 def simuler_systeme_avec_batterie(df, capacite_kwh, p_max_kw=3.0, soc_initial_pct=0.0):
     if len(df) > 1:
@@ -123,9 +121,9 @@ def simuler_systeme_avec_batterie(df, capacite_kwh, p_max_kw=3.0, soc_initial_pc
     
     return df_res, dt
 
-# ==========================================
-# 4. INTERFACE UTILISATEUR STREAMLIT
-# ==========================================
+
+#  INTERFACE UTILISATEUR STREAMLIT
+
 
 st.title("Simulation d'Autoconsommation et Stockage")
 
@@ -164,7 +162,7 @@ if fichier_conso is not None and fichier_prod is not None:
         st.error("Aucune donnée trouvée pour les dates sélectionnées.")
     else:
         # CREATION DE TROIS ONGLETS
-        tab1, tab2, tab3, tab4 = st.tabs(["Simulation Manuelle (Temporelle)", "Optimisation (Énergie Totale)", "Optimisation (Gain Batterie)", "Analyse Annuelle (1er Janvier)"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Simulation Temporelle", "Optimisation (Énergie Totale)", "Optimisation (Gain Batterie)", "Analyse Annuelle"])
         
         # ----------------------------------------------------
         # ONGLET 1 : Simulation manuelle (Version d'origine restaurée)
@@ -315,7 +313,6 @@ if fichier_conso is not None and fichier_prod is not None:
             st.info(f"Période d'analyse : Du {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')} ({(date_fin - date_debut).days + 1} jours)")
             st.markdown("""
             L'objectif ici est de visualiser uniquement l'apport de la batterie par rapport à une installation solaire simple sans stockage. 
-            La courbe montre les kWh supplémentaires que la batterie vous permet de sauver. Le point idéal se situe là où la courbe verte stagne.
             """)
             
             st.markdown("### Plage de test de la batterie")
@@ -385,9 +382,9 @@ if fichier_conso is not None and fichier_prod is not None:
                     
                     st.success(f"À titre d'information, sans batterie, votre installation solaire autoconsomme naturellement {autoconso_sans_bat:.1f} kWh sur cette période.")
 
-        # ----------------------------------------------------
-        # ONGLET 4 : Analyse Annuelle (Année complète à partir du 1er Janvier)
-        # ----------------------------------------------------
+
+        # ONGLET 4 : Analyse Annuelle 
+       
         with tab4:
             st.header("Analyse Annuelle : Gain, Autoproduction et Autoconsommation")
             st.markdown("""
