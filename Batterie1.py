@@ -421,7 +421,7 @@ if fichier_conso is not None and fichier_prod is not None:
                 st.info("Règle appliquée : Pour chaque capacité testée, la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh).")
 
                 if st.button("Lancer l'analyse annuelle", key="btn_run_t4"):
-                    with st.spinner("Calcul de dizaines de scénarios sur une année complète en cours..."):
+                    with st.spinner("Calcul en cours..."):
 
                         dt_annee = (df_annee.index[1] - df_annee.index[0]).total_seconds() / 3600.0 if len(df_annee) > 1 else 1.0
                         autoconso_sans_bat_annee = np.minimum(df_annee["conso_kW"], df_annee["prod_kW"]).sum() * dt_annee
