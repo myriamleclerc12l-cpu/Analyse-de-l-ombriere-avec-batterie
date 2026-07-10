@@ -9,7 +9,7 @@ Created on Thu Jul  9 11:16:21 2026
 
 # -*- coding: utf-8 -*-
 """
-Application Streamlit dont l'objectif est de visualiser les courbes de production de l'ombrière ainsi que les courbes de charges du siège du TE13. *
+Application Streamlit dont l'objectif est de visualiser les courbes de production de l'ombrière ainsi que les courbes de charges du siège du TE13.
 Grâce aux données obtenues, il est maintenant possible de trouver un dimensionnement adapté pour la batterie associée au système. 
 """
 
