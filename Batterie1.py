@@ -315,9 +315,9 @@ if fichier_conso is not None and fichier_prod is not None:
                     st.success(f"À titre d'information, sans batterie, votre installation solaire autoconsomme naturellement {autoconso_sans_bat:.1f} kWh sur cette période. Le \"gain net\" affiché ci-dessus correspond donc aux kWh supplémentaires autoconsommés grâce à la batterie, au-delà de ces {autoconso_sans_bat:.1f} kWh.")
 
 
-        # ONGLET 4 : Analyse Annuelle 
+        # ONGLET 3 : Analyse Annuelle 
        
-        with tab4:
+        with tab3:
             st.header("Analyse Annuelle : Gain, Autoproduction et Autoconsommation")
             st.markdown("""
             Cette analyse simule une **année complète glissante démarrant le 1er janvier** (indépendamment de la période
