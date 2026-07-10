@@ -165,7 +165,7 @@ if fichier_conso is not None and fichier_prod is not None:
         tab1, tab2, tab3, tab4 = st.tabs(["Simulation Temporelle", "Optimisation (Énergie Totale)", "Optimisation (Gain Batterie)", "Analyse Annuelle"])
         
         # ----------------------------------------------------
-        # ONGLET 1 : Simulation manuelle (Version d'origine restaurée)
+        # ONGLET 1 : Simulation manuelle
         # ----------------------------------------------------
         with tab1:
             st.markdown("---")
@@ -254,7 +254,7 @@ if fichier_conso is not None and fichier_prod is not None:
             st.info("Règle appliquée : Pour chaque capacité testée, la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh).")
 
             if st.button("Lancer l'analyse (Énergie Totale)", key="btn_run_t2"):
-                with st.spinner('Calcul de dizaines de scénarios en cours...'):
+                with st.spinner('Calcul en cours...'):
                     resultats_t2 = []
                     capacites_testees_t2 = np.arange(0, max_cap_test_t2 + 5, 5) 
                     
