@@ -1,5 +1,3 @@
-
-
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jul  9 11:16:21 2026
@@ -162,7 +160,7 @@ if fichier_conso is not None and fichier_prod is not None:
         st.error("Aucune donnée trouvée pour les dates sélectionnées.")
     else:
         # CREATION DE TROIS ONGLETS
-        tab1, tab2, tab3, tab4 = st.tabs(["Simulation Temporelle", "Optimisation (Énergie Totale)", "Optimisation (Gain Batterie)", "Analyse Annuelle"])
+        tab1, tab2, tab3 = st.tabs(["Simulation Temporelle", "Isoler le Gain de la Batterie", "Analyse Annuelle"])
         
         # ----------------------------------------------------
         # ONGLET 1 : Simulation manuelle
@@ -237,93 +235,27 @@ if fichier_conso is not None and fichier_prod is not None:
             col_kpi3.metric("Énergie totale économisée", f"{autoconso_totale:.1f} kWh")
 
         # ----------------------------------------------------
-        # ONGLET 2 : Optimisation (Énergie Totale Économisée)
+        # ONGLET 2 : Isoler le Gain de la Batterie
         # ----------------------------------------------------
         with tab2:
-            st.header("Maximiser l'Énergie Totale Économisée")
-            st.info(f"Période d'analyse : Du {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')} ({(date_fin - date_debut).days + 1} jours)")
-            st.markdown("""
-            L'objectif ici est de trouver la capacité de batterie qui permet de maximiser la quantité totale d'énergie solaire consommée sur place.
-            """)
-            
-            st.markdown("### Plage de test de la batterie")
-            col_test1_t2, col_test3_t2 = st.columns(2)
-            max_cap_test_t2 = col_test1_t2.slider("Tester les batteries jusqu'à (kWh) :", min_value=10, max_value=300, value=300, step=10, key="slider_cap_t2")
-            soc_init_test_t2 = col_test3_t2.number_input("Charge initiale au départ (%) :", value=0, min_value=0, max_value=100, key="num_soc_t2")
-            
-            st.info("Règle appliquée : Pour chaque capacité testée, la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh).")
-
-            if st.button("Lancer l'analyse (Énergie Totale)", key="btn_run_t2"):
-                with st.spinner('Calcul en cours...'):
-                    resultats_t2 = []
-                    capacites_testees_t2 = np.arange(0, max_cap_test_t2 + 5, 5) 
-                    
-                    for cap in capacites_testees_t2:
-                        # Règle métier appliquée
-                        p_ond = cap / 2.0
-                        df_res_t2, dt_t2 = simuler_systeme_avec_batterie(df, cap, p_max_kw=p_ond, soc_initial_pct=soc_init_test_t2)
-                        
-                        conso_tot_t2 = df_res_t2["conso_kW"].sum() * dt_t2
-                        autoconso_tot_t2 = df_res_t2["Autoconso_Totale_kW"].sum() * dt_t2
-                        
-                        tap_val_t2 = (autoconso_tot_t2 / conso_tot_t2 * 100) if conso_tot_t2 > 0 else 0
-                        
-                        resultats_t2.append({
-                            "Capacité (kWh)": cap,
-                            "Énergie Économisée (kWh)": autoconso_tot_t2,
-                            "TAP (%)": tap_val_t2
-                        })
-                    
-                    df_resultats_t2 = pd.DataFrame(resultats_t2)
-                    
-                    fig_opti_t2 = make_subplots(specs=[[{"secondary_y": True}]])
-                    
-                    fig_opti_t2.add_trace(go.Scatter(
-                        x=df_resultats_t2["Capacité (kWh)"], 
-                        y=df_resultats_t2["Énergie Économisée (kWh)"], 
-                        mode="lines+markers", 
-                        name="Énergie Autoconsommée",
-                        fill='tozeroy',
-                        line=dict(color='green', width=3)
-                    ), secondary_y=False)
-                    
-                    fig_opti_t2.add_trace(go.Scatter(
-                        x=df_resultats_t2["Capacité (kWh)"], 
-                        y=df_resultats_t2["TAP (%)"], 
-                        mode="lines", 
-                        name="Taux d'Autoproduction (TAP)",
-                        line=dict(color='blue', width=2, dash='dash')
-                    ), secondary_y=True)
-                    
-                    fig_opti_t2.update_layout(
-                        title="Évolution de l'Énergie Économisée en fonction de la taille de la Batterie",
-                        xaxis_title="Taille de la batterie simulée (kWh)",
-                        hovermode="x unified"
-                    )
-                    fig_opti_t2.update_yaxes(title_text="Énergie Solaire Consommée sur place (kWh)", secondary_y=False)
-                    fig_opti_t2.update_yaxes(title_text="Taux d'Autoproduction (%)", range=[0, 105], secondary_y=True)
-                    
-                    st.plotly_chart(fig_opti_t2, use_container_width=True)
-
-        # ----------------------------------------------------
-        # ONGLET 3 : Optimisation (Gain de la Batterie)
-        # ----------------------------------------------------
-        with tab3:
             st.header("Isoler le Gain de la Batterie")
             st.info(f"Période d'analyse : Du {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')} ({(date_fin - date_debut).days + 1} jours)")
             st.markdown("""
-            L'objectif ici est de visualiser uniquement l'apport de la batterie par rapport à une installation solaire simple sans stockage. 
+            L'objectif ici est de visualiser uniquement l'apport de la batterie par rapport à une installation solaire simple sans stockage.
+
+            **Qu'est-ce que le "gain net" ?** C'est la quantité d'énergie solaire supplémentaire autoconsommée grâce à la batterie,
+            par rapport à une installation identique fonctionnant sans stockage (autoconsommation directe uniquement, sans surplus stocké ni redistribué).
+            Concrètement : *Gain net = Énergie autoconsommée AVEC batterie − Énergie autoconsommée SANS batterie*.
+            Il représente donc les kWh de production solaire qui, sans la batterie, auraient été perdus (renvoyés au réseau) et qui sont désormais utilisés sur place.
             """)
             
-            st.markdown("### Plage de test de la batterie")
-            col_test1, col_test3 = st.columns(2)
-            max_cap_test = col_test1.slider("Tester les batteries jusqu'à (kWh) :", min_value=10, max_value=300, value=300, step=10, key="slider_cap_t3")
-            soc_init_test = col_test3.number_input("Charge initiale au départ (%) :", value=0, min_value=0, max_value=100, key="num_soc_t3")
-            
-            st.info("Règle appliquée : Pour chaque capacité testée, la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh).")
+            max_cap_test = 300
+            soc_init_test = st.number_input("Charge initiale au départ (%) :", value=0, min_value=0, max_value=100, key="num_soc_t3", help="Niveau de charge de la batterie au début de la période sélectionnée.")
+
+            st.info("Règle appliquée : Pour chaque capacité testée (de 0 à 300 kWh par pas de 5 kWh), la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh).")
 
             if st.button("Lancer l'analyse de sensibilité", key="btn_run_t3"):
-                with st.spinner('Calcul de dizaines de scénarios en cours...'):
+                with st.spinner('Calcul en cours...'):
                     
                     # 1. Calcul de référence : Autoconsommation SANS batterie
                     dt_val = (df.index[1] - df.index[0]).total_seconds() / 3600.0 if len(df) > 1 else 1.0
@@ -380,7 +312,7 @@ if fichier_conso is not None and fichier_prod is not None:
                     
                     st.plotly_chart(fig_opti, use_container_width=True)
                     
-                    st.success(f"À titre d'information, sans batterie, votre installation solaire autoconsomme naturellement {autoconso_sans_bat:.1f} kWh sur cette période.")
+                    st.success(f"À titre d'information, sans batterie, votre installation solaire autoconsomme naturellement {autoconso_sans_bat:.1f} kWh sur cette période. Le \"gain net\" affiché ci-dessus correspond donc aux kWh supplémentaires autoconsommés grâce à la batterie, au-delà de ces {autoconso_sans_bat:.1f} kWh.")
 
 
         # ONGLET 4 : Analyse Annuelle 
@@ -390,9 +322,14 @@ if fichier_conso is not None and fichier_prod is not None:
             st.markdown("""
             Cette analyse simule une **année complète glissante démarrant le 1er janvier** (indépendamment de la période
             sélectionnée plus haut), et calcule pour chaque capacité de batterie testée :
-            - le **gain énergétique** apporté par la batterie (kWh supplémentaires autoconsommés par rapport à une installation sans stockage),
+            - le **gain énergétique**,
             - le **taux d'autoproduction (TAP)**,
             - le **taux d'autoconsommation (TAC)**.
+
+            **Qu'est-ce que le "gain énergétique" ?** C'est la quantité d'énergie solaire supplémentaire autoconsommée sur l'année grâce à la batterie,
+            par rapport à la même installation sans stockage (autoconsommation directe uniquement). Autrement dit :
+            *Gain énergétique = Énergie autoconsommée AVEC batterie sur l'année − Énergie autoconsommée SANS batterie sur l'année*.
+            Il représente les kWh de production solaire qui, sans la batterie, auraient été perdus (renvoyés au réseau) et qui sont désormais valorisés sur place.
             """)
 
             # --- Détection automatique de l'année complète (1er janvier -> 31 mai) ---
@@ -413,12 +350,10 @@ if fichier_conso is not None and fichier_prod is not None:
 
                 st.info(f"Année analysée : du {date_debut_annee.strftime('%d/%m/%Y')} au {date_fin_annee.strftime('%d/%m/%Y')} ({nb_jours_dispo} jours).")
 
-                st.markdown("### Paramètres de simulation")
-                col_t4_1, col_t4_2 = st.columns(2)
-                max_cap_test_t4 = col_t4_1.slider("Tester les batteries jusqu'à (kWh) :", min_value=10, max_value=300, value=300, step=10, key="slider_cap_t4")
-                soc_initial_janvier_t4 = col_t4_2.slider("Charge initiale de la batterie au 1er janvier (%) :", min_value=0, max_value=100, value=0, step=5, key="slider_soc_t4", help="Niveau de charge de la batterie au tout début de l'année analysée (1er janvier).")
+                max_cap_test_t4 = 300
+                soc_initial_janvier_t4 = 0
 
-                st.info("Règle appliquée : Pour chaque capacité testée, la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh).")
+                st.info("Règle appliquée : Pour chaque capacité testée (de 0 à 300 kWh par pas de 5 kWh), la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh). La batterie est supposée vide (0 %) au 1er janvier.")
 
                 if st.button("Lancer l'analyse annuelle", key="btn_run_t4"):
                     with st.spinner("Calcul en cours..."):
