@@ -97,10 +97,10 @@ def charger_donnees_reelles(file_conso, file_prod, file_bornes):
         
         # Les fichiers Enedis fournissent souvent des Watts.
         # Astuce : si la valeur max dépasse 1000, c'est que ce sont des Watts. On convertit en kW.
-        if df_b["valeur"].max() > 1000:
-            df_b["conso_bornes_kW"] = df_b["valeur"] / 1000.0
-        else:
-            df_b["conso_bornes_kW"] = df_b["valeur"]
+        
+            
+        df_b["conso_bornes_kW"] = df_b["valeur"] / 1000.0
+        
         
         # Fusion avec le dataframe principal
         df = df.join(df_b["conso_bornes_kW"], how='left')
