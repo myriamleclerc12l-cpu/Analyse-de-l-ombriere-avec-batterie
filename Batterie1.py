@@ -259,7 +259,11 @@ if fichier_conso is not None and fichier_prod is not None:
             st.info(f"Période d'analyse : Du {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')} ({(date_fin - date_debut).days + 1} jours)")
             st.markdown("""
             L'objectif ici est de visualiser uniquement l'apport de la batterie par rapport à une installation solaire simple sans stockage.
-            **Gain net** = Énergie autoconsommée AVEC batterie − Énergie autoconsommée SANS batterie.
+
+            **Qu'est-ce que le "gain net" ?** C'est la quantité d'énergie solaire supplémentaire autoconsommée grâce à la batterie,
+            par rapport à une installation identique fonctionnant sans stockage (autoconsommation directe uniquement, sans surplus stocké ni redistribué).
+            Concrètement : *Gain net = Énergie autoconsommée AVEC batterie − Énergie autoconsommée SANS batterie*.
+            Il représente donc les kWh de production solaire qui, sans la batterie, auraient été perdus (renvoyés au réseau) et qui sont désormais utilisés sur place.
             """)
             
             max_cap_test = 300
@@ -310,7 +314,15 @@ if fichier_conso is not None and fichier_prod is not None:
             st.header("Analyse Annuelle : Gain, Autoproduction et Autoconsommation")
             st.markdown("""
             Cette analyse simule une **année complète glissante démarrant le 1er janvier** (indépendamment de la période
-            sélectionnée plus haut), et calcule pour chaque capacité de batterie testée le gain, le TAP et le TAC.
+            sélectionnée plus haut), et calcule pour chaque capacité de batterie testée :
+            - le **gain énergétique**,
+            - le **taux d'autoproduction (TAP)**,
+            - le **taux d'autoconsommation (TAC)**.
+
+            **Qu'est-ce que le "gain énergétique" ?** C'est la quantité d'énergie solaire supplémentaire autoconsommée sur l'année grâce à la batterie,
+            par rapport à la même installation sans stockage (autoconsommation directe uniquement). Autrement dit :
+            *Gain énergétique = Énergie autoconsommée avec batterie sur l'année − Énergie autoconsommée sans batterie sur l'année*.
+            Il représente les kWh de production solaire qui, sans la batterie, auraient été perdus (renvoyés au réseau) et qui sont désormais valorisés sur place.
             """)
 
             candidats_1er_janvier = df_complet.index[(df_complet.index.month == 1) & (df_complet.index.day == 1)]
@@ -386,11 +398,11 @@ if fichier_conso is not None and fichier_prod is not None:
                     df_res_t4 = st.session_state["df_resultats_t4"]
 
                     st.markdown("---")
-                    st.subheader("💡 Validation des Hypothèses Techniques")
+                    st.subheader(" Validation des Hypothèses Techniques")
                     st.markdown("Cochez les critères que vous souhaitez imposer à votre batterie. L'outil calculera la capacité nécessaire pour valider **simultanément** toutes vos hypothèses.")
 
                     options_methodes = {
-                        "Coude géométrique de rentabilité (Kneedle)": ("kneedle", None),
+                        "Coude géométrique de rentabilité": ("kneedle", None),
                         "Atteindre le plateau à 90 % du gain net maximal": ("plateau_gain", 0.90),
                         "Atteindre le plateau à 95 % du gain net maximal": ("plateau_gain", 0.95),
                         "Gain marginal < 200 kWh (pour chaque ajout de 5 kWh)": ("marginal_abs", 200),
@@ -430,7 +442,7 @@ if fichier_conso is not None and fichier_prod is not None:
                         cap_ideale_finale = max(caps_calculees)
                         ligne_ideale = df_res_t4[df_res_t4["Capacité (kWh)"] == cap_ideale_finale].iloc[0]
 
-                        st.success(f"### 🔋 Capacité recommandée : {cap_ideale_finale:.0f} kWh")
+                        st.success(f"###  Capacité recommandée : {cap_ideale_finale:.0f} kWh")
                         st.markdown("*Pour satisfaire simultanément tous vos critères, le système retient la valeur la plus exigeante parmi vos choix.*")
 
                         col_res1, col_res2, col_res3, col_res4 = st.columns(4)
