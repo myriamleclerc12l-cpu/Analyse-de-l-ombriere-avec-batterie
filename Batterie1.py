@@ -570,10 +570,10 @@ if fichier_conso is not None and fichier_prod is not None:
             name="Pic de consommation (kW/j)", line=dict(color="royalblue", width=2)), secondary_y=False)
   
         fig_ld.add_trace(go.Scatter(x=prod_pic_j.index, y=prod_pic_j.values, mode="lines",
-            name="Pic de production (kW/j)", line=dict(color="#FF8C00", width=4)), secondary_y=False)
+            name="Pic de production (kW/j)", line=dict(color="#FF8C00", width=2)), secondary_y=False)
 
         fig_ld.add_trace(go.Scatter(x=soc_moyen_j.index, y=soc_moyen_j.values, mode="lines",
-            name="État de charge moyen (%)", line=dict(color="purple", width=3),
+            name="État de charge moyen (%)", line=dict(color="purple", width=2),
             fill="tozeroy", fillcolor="rgba(128, 0, 128, 0.1)"), secondary_y=True)
  
         fig_ld.update_layout(
