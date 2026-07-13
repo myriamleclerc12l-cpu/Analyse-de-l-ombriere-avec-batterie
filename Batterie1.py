@@ -411,6 +411,39 @@ if fichier_conso is not None and fichier_prod is not None:
                         "Atteindre le plateau à 90 % du TAP maximal possible": ("plateau_tap", 0.90),
                         "Atteindre le plateau à 95 % du TAP maximal possible": ("plateau_tap", 0.95),
                     }
+                    
+                    
+
+# Texte affiché au survol du petit "?" à côté de chaque case
+                    aide_methodes = {
+    "Coude géométrique de rentabilité":
+        "Détecte automatiquement le point d'inflexion (le « coude ») de la courbe de gain : "
+        "la capacité où l'écart entre la courbe et la droite reliant le premier et le dernier "
+        "point testés (0 et 300 kWh) est maximal. Méthode géométrique (Kneedle), sans seuil à choisir.",
+    "Atteindre le plateau à 90 % du gain net maximal":
+        "Retient la plus petite capacité testée qui atteint déjà 90 % du gain énergétique "
+        "maximal observé sur toute la plage testée (0 à 300 kWh).",
+    "Atteindre le plateau à 95 % du gain net maximal":
+        "Même principe que l'option 90 %, avec un seuil plus exigeant : 95 % du gain "
+        "énergétique maximal possible.",
+    "Gain marginal < 200 kWh (pour chaque ajout de 5 kWh)":
+        "Parcourt les capacités testées par palier de 5 kWh et retient la dernière capacité "
+        "pour laquelle le palier suivant apportait encore au moins 200 kWh de gain annuel. "
+        "Dès qu'un palier rapporte moins que ce seuil, l'algorithme s'arrête et garde la capacité juste avant.",
+    "Gain marginal < 100 kWh (pour chaque ajout de 5 kWh)":
+        "Même logique, avec un seuil de rentabilité marginale plus strict : 100 kWh "
+        "de gain minimum par palier de 5 kWh pour continuer à augmenter la capacité.",
+    "Gain marginal < 50 kWh (pour chaque ajout de 5 kWh)":
+        "Même logique, avec un seuil encore plus strict : 50 kWh de gain minimum par palier "
+        "de 5 kWh. Conduit généralement à une capacité recommandée plus élevée que les deux options précédentes.",
+    "Atteindre le plateau à 90 % du TAP maximal possible":
+        "Retient la plus petite capacité testée qui atteint déjà 90 % du Taux d'Autoproduction "
+        "(TAP) maximal observé sur toute la plage testée.",
+    "Atteindre le plateau à 95 % du TAP maximal possible":
+        "Même principe que l'option 90 %, avec un seuil plus exigeant : 95 % du TAP "
+        "maximal possible.",
+                    }
+
 
                     col_c1, col_c2 = st.columns(2)
                     methodes_selectionnees = []
@@ -419,7 +452,7 @@ if fichier_conso is not None and fichier_prod is not None:
                         # Cocher par défaut certaines options pour l'exemple
                         default_check = False
                         with (col_c1 if i % 2 == 0 else col_c2):
-                            if st.checkbox(label, value=default_check, key=f"chk_hyp_{i}"):
+                            if st.checkbox(label, value=default_check, key=f"chk_hyp_{i}", help=aide_methodes[label]):
                                 methodes_selectionnees.append(label)
 
                     if methodes_selectionnees:
