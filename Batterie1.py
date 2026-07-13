@@ -549,7 +549,7 @@ if fichier_conso is not None and fichier_prod is not None:
             name="Pic de consommation (kW/j)", line=dict(color="blue", width=2)), secondary_y=False)
 
         fig_ld.add_trace(go.Scatter(x=prod_pic_j.index, y=prod_pic_j.values, mode="lines",
-           name="Pic de production (kW/j)", line=dict(color="orange", width=2, dash="dash")), secondary_y=False)
+           name="Pic de production (kW/j)", line=dict(color="#FF8C00", width=2)), secondary_y=False)
 
         fig_ld.add_trace(go.Bar(x=import_j.index, y=import_j.values,
            name="Achat Réseau (kWh/j)", marker_color="rgba(255, 0, 0, 0.4)"), secondary_y=False)
