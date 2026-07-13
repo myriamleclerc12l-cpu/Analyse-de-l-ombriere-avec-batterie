@@ -431,11 +431,13 @@ if fichier_conso is not None and fichier_prod is not None:
         "pour laquelle le palier suivant apportait encore au moins 200 kWh de gain annuel. "
         "Dès qu'un palier rapporte moins que ce seuil, l'algorithme s'arrête et garde la capacité juste avant.",
     "Gain marginal < 100 kWh (pour chaque ajout de 5 kWh)":
-        "Même logique, avec un seuil de rentabilité marginale plus strict : 100 kWh "
-        "de gain minimum par palier de 5 kWh pour continuer à augmenter la capacité.",
+        "Parcourt les capacités testées par palier de 5 kWh et retient la dernière capacité "
+        "pour laquelle le palier suivant apportait encore au moins 100 kWh de gain annuel. "
+        "Dès qu'un palier rapporte moins que ce seuil, l'algorithme s'arrête et garde la capacité juste avant.",
     "Gain marginal < 50 kWh (pour chaque ajout de 5 kWh)":
-        "Même logique, avec un seuil encore plus strict : 50 kWh de gain minimum par palier "
-        "de 5 kWh. Conduit généralement à une capacité recommandée plus élevée que les deux options précédentes.",
+        "Parcourt les capacités testées par palier de 5 kWh et retient la dernière capacité "
+        "pour laquelle le palier suivant apportait encore au moins 50kWh de gain annuel. "
+        "Dès qu'un palier rapporte moins que ce seuil, l'algorithme s'arrête et garde la capacité juste avant.Conduit généralement à une capacité recommandée plus élevée que les deux options précédentes. ",
     "Atteindre le plateau à 90 % du TAP maximal possible":
         "Retient la plus petite capacité testée qui atteint déjà 90 % du Taux d'Autoproduction "
         "(TAP) maximal observé sur toute la plage testée.",
