@@ -417,7 +417,7 @@ if fichier_conso is not None and fichier_prod is not None:
                     
                     for i, (label, params) in enumerate(options_methodes.items()):
                         # Cocher par défaut certaines options pour l'exemple
-                        default_check = (i == 1 or i == 4) 
+                        default_check = False
                         with (col_c1 if i % 2 == 0 else col_c2):
                             if st.checkbox(label, value=default_check, key=f"chk_hyp_{i}"):
                                 methodes_selectionnees.append(label)
