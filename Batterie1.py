@@ -238,7 +238,7 @@ if fichier_conso is not None and fichier_prod is not None:
         # ONGLET 2 : Isoler le Gain de la Batterie
         # ----------------------------------------------------
         with tab2:
-            st.header("Isoler le Gain de la Batterie")
+            st.header("Gain de la Batterie")
             st.info(f"Période d'analyse : Du {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')} ({(date_fin - date_debut).days + 1} jours)")
             st.markdown("""
             L'objectif ici est de visualiser uniquement l'apport de la batterie par rapport à une installation solaire simple sans stockage.
@@ -432,6 +432,78 @@ if fichier_conso is not None and fichier_prod is not None:
                             "TAP (%)": "{:.1f}",
                             "TAC (%)": "{:.1f}"
                         }))
+
+                        st.session_state["df_resultats_t4"] = df_resultats_t4
+
+                if "df_resultats_t4" in st.session_state:
+                    df_resultats_t4_ideal = st.session_state["df_resultats_t4"]
+
+                    st.markdown("---")
+                    st.subheader("Capacité idéale selon une hypothèse technique")
+                    st.markdown("""
+                    Sélectionnez une méthode ci-dessous : chacune applique un critère technique différent (sans aucune hypothèse de prix)
+                    pour déterminer directement la capacité de batterie la plus pertinente, à partir des résultats de l'analyse annuelle ci-dessus.
+                    """)
+
+                    options_methodes = {
+                        "Coude géométrique (Kneedle)": ("kneedle", None),
+                        "Plateau à 90 % du gain net maximal": ("plateau_gain", 0.90),
+                        "Plateau à 95 % du gain net maximal": ("plateau_gain", 0.95),
+                        "Plateau à 99 % du gain net maximal": ("plateau_gain", 0.99),
+                        "Gain marginal < 200 kWh par +5 kWh": ("marginal_abs", 200),
+                        "Gain marginal < 100 kWh par +5 kWh": ("marginal_abs", 100),
+                        "Gain marginal < 50 kWh par +5 kWh": ("marginal_abs", 50),
+                        "Plateau à 90 % du TAP maximal": ("plateau_tap", 0.90),
+                        "Plateau à 95 % du TAP maximal": ("plateau_tap", 0.95),
+                        "Plateau à 99 % du TAP maximal": ("plateau_tap", 0.99),
+                    }
+
+                    methode_label = st.selectbox(
+                        "Méthode de détermination de la capacité idéale :",
+                        list(options_methodes.keys()),
+                        key="methode_capacite_ideale"
+                    )
+                    type_methode, param_methode = options_methodes[methode_label]
+
+                    def trouver_capacite_ideale(df_res, type_methode, param):
+                        caps = df_res["Capacité (kWh)"].values.astype(float)
+                        gains = df_res["Gain Énergétique (kWh)"].values.astype(float)
+                        taps = df_res["TAP (%)"].values.astype(float)
+
+                        if type_methode == "kneedle":
+                            x_norm = (caps - caps.min()) / (caps.max() - caps.min())
+                            y_norm = (gains - gains.min()) / (gains.max() - gains.min())
+                            x1, y1, x2, y2 = x_norm[0], y_norm[0], x_norm[-1], y_norm[-1]
+                            distances = np.abs((y2 - y1) * x_norm - (x2 - x1) * y_norm + x2 * y1 - y2 * x1) / np.sqrt((y2 - y1) ** 2 + (x2 - x1) ** 2)
+                            idx = int(np.argmax(distances))
+                            return caps[idx]
+
+                        elif type_methode == "plateau_gain":
+                            seuil = gains.max() * param
+                            idx = int(np.argmax(gains >= seuil))
+                            return caps[idx]
+
+                        elif type_methode == "marginal_abs":
+                            for i in range(1, len(caps)):
+                                if (gains[i] - gains[i - 1]) < param:
+                                    return caps[i - 1]
+                            return caps[-1]
+
+                        elif type_methode == "plateau_tap":
+                            seuil = taps.max() * param
+                            idx = int(np.argmax(taps >= seuil))
+                            return caps[idx]
+
+                    cap_ideale = trouver_capacite_ideale(df_resultats_t4_ideal, type_methode, param_methode)
+                    ligne_ideale = df_resultats_t4_ideal[df_resultats_t4_ideal["Capacité (kWh)"] == cap_ideale].iloc[0]
+
+                    col_res1, col_res2, col_res3, col_res4 = st.columns(4)
+                    col_res1.metric("Capacité idéale", f"{cap_ideale:.0f} kWh")
+                    col_res2.metric("Gain net associé", f"{ligne_ideale['Gain Énergétique (kWh)']:.0f} kWh")
+                    col_res3.metric("TAP associé", f"{ligne_ideale['TAP (%)']:.1f} %")
+                    col_res4.metric("TAC associé", f"{ligne_ideale['TAC (%)']:.1f} %")
+
+                    st.caption("Aucune hypothèse de prix n'est utilisée ici : chaque méthode repose uniquement sur la forme de la courbe technique (gain net, TAP) obtenue lors de l'analyse annuelle.")
 
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
