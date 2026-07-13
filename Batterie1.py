@@ -87,9 +87,14 @@ def charger_donnees_reelles(file_conso, file_prod, file_bornes):
                 date_col = date_cols[0]
         else:
                 st.error("Aucune colonne de date ou d'horodate trouvée.")
-        return df
-        val_col = [col for col in df_b.columns if 'valeur' in col.lower() or 'soutirage' in col.lower() or 'puissance' in col.lower()][0]
-        
+                return df
+        val_col = [col for col in df_b.columns if 'valeur' in col.lower() or 'soutirage' in col.lower() or 'puissance' in col.lower()]
+
+        if not val_col:
+             st.error("Aucune colonne de valeur trouvée.")
+             return df
+
+        val_col = val_col[0]
         df_b = df_b[[date_col, val_col]].copy()
         df_b.columns = ["date", "valeur"]
         df_b["date"] = pd.to_datetime(df_b["date"], utc=True)
