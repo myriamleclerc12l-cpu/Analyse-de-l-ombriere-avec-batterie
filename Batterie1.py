@@ -201,6 +201,11 @@ if fichier_conso is not None and fichier_prod is not None:
         with tab1:
             st.markdown("---")
             st.header("Simulation temporelle courte durée (< 1 mois) ")
+            st.markdown("""
+       Cet onglet est adapté à l'analyse des courbes de charges, de production et de la capacité utilisé de la batterie sur 
+       périodes courtes (D'une journée à quelques semaines) avec un pas de temps de 30 min, 
+       
+       """  )
 
             col_bat1, col_bat2 = st.columns(2)
             capacite_batterie = col_bat1.slider("Capacité (kWh)", min_value=0.0, max_value=300.0, value=50.0, step=1.0, help="Volume total d'énergie stockable.")
