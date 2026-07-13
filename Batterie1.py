@@ -219,6 +219,14 @@ st.sidebar.header("Données réelles")
 fichier_conso = st.sidebar.file_uploader("Courbe de charge (Siège TE13)", type=["csv", "xlsx", "xls"])
 fichier_prod = st.sidebar.file_uploader("Production PV (Ombrière)", type=["csv", "xlsx", "xls"])
 
+fichier_bornes = st.sidebar.file_uploader(
+    "Bornes de recharge (Enedis) — Optionnel :", 
+    type=["csv"],
+    key="up_bornes",
+    help="Fichier CSV au format Enedis (.csv). Les recharges seront additionnées automatiquement à la consommation du siège."
+)
+
+
 if fichier_conso is not None and fichier_prod is not None:
     st.sidebar.success("Fichiers réels chargés.")
     df_complet = charger_donnees_reelles(fichier_conso, fichier_prod)
