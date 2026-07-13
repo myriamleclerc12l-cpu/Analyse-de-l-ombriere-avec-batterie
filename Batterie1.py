@@ -77,7 +77,17 @@ def charger_donnees_reelles(file_conso, file_prod, file_bornes):
         df_b = pd.read_csv(io.StringIO(content), sep=';', skiprows=skip_lines)
         
         # Détection dynamique des colonnes utiles
-        date_col = [col for col in df_b.columns if 'horodate' in col.lower() or 'date' in col.lower()][0]
+        horodate_cols = [col for col in df_b.columns if 'horodate' in col.lower()]
+        date_cols = [col for col in df_b.columns if 'date' in col.lower()]
+            
+        if horodate_cols:
+                date_col = horodate_cols[0]
+           
+        elif date_cols:
+                date_col = date_cols[0]
+        else:
+                st.error("Aucune colonne de date ou d'horodate trouvée.")
+        return df
         val_col = [col for col in df_b.columns if 'valeur' in col.lower() or 'soutirage' in col.lower() or 'puissance' in col.lower()][0]
         
         df_b = df_b[[date_col, val_col]].copy()
