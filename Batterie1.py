@@ -533,15 +533,16 @@ if fichier_conso is not None and fichier_prod is not None:
 
     # --- Ré-échantillonnage : 1 point par jour ---
         jours = df_simu_ld.index.date
-        conso_pic_j = df_simu_ld.groupby(jours)["conso_kW"].max()      # pic de charge du jour
-        prod_pic_j  = df_simu_ld.groupby(jours)["prod_kW"].max()       # pic de production du jour
-        soc_moyen_j = df_simu_ld.groupby(jours)["SoC_pourcent"].mean()
-        import_j    = df_simu_ld.groupby(jours)["Import_Reseau_kW"].sum() * dt_ld
-        export_j    = df_simu_ld.groupby(jours)["Export_Reseau_kW"].sum() * dt_ld
+        conso_pic_j  = df_simu_ld.groupby(jours)["conso_kW"].max()
+        prod_pic_j   = df_simu_ld.groupby(jours)["prod_kW"].max()
+        soc_moyen_j  = df_simu_ld.groupby(jours)["SoC_pourcent"].mean()
+        import_pic_j = df_simu_ld.groupby(jours)["Import_Reseau_kW"].max()   # pic d'achat (kW), plus .sum()*dt
+        export_pic_j = df_simu_ld.groupby(jours)["Export_Reseau_kW"].max()   # pic d'injection (kW), plus .sum()*dt
 
-        for serie in (conso_pic_j, prod_pic_j, soc_moyen_j, import_j, export_j):
-          serie.index = pd.to_datetime(serie.index)
+        for serie in (conso_pic_j, prod_pic_j, soc_moyen_j, import_pic_j, export_pic_j):
+            serie.index = pd.to_datetime(serie.index)
 
+     
     # --- Graphique ---
         fig_ld = make_subplots(specs=[[{"secondary_y": True}]])
 
@@ -551,10 +552,10 @@ if fichier_conso is not None and fichier_prod is not None:
         fig_ld.add_trace(go.Scatter(x=prod_pic_j.index, y=prod_pic_j.values, mode="lines",
            name="Pic de production (kW/j)", line=dict(color="#FF8C00", width=2)), secondary_y=False)
 
-        fig_ld.add_trace(go.Bar(x=import_j.index, y=import_j.values,
+        fig_ld.add_trace(go.Bar(x=import_pic_j.index, y=import_pic_j.values,
            name="Achat Réseau (kWh/j)", marker_color="rgba(255, 0, 0, 0.4)"), secondary_y=False)
 
-        fig_ld.add_trace(go.Bar(x=export_j.index, y=export_j.values,
+        fig_ld.add_trace(go.Bar(x=export_pic_j.index, y=export_pic_j.values,
            name="Injection Réseau (kWh/j)", marker_color="rgba(0, 255, 0, 0.4)"), secondary_y=False)
 
         fig_ld.add_trace(go.Scatter(x=soc_moyen_j.index, y=soc_moyen_j.values, mode="lines",
