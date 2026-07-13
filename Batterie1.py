@@ -98,10 +98,7 @@ def charger_donnees_reelles(file_conso, file_prod, file_bornes):
         if df_b["valeur"].dtype == object:
             df_b["valeur"] = df_b["valeur"].str.replace(',', '.').astype(float)
         
-        df_b = df_b[~((df_b["date"].dt.month == 1) & 
-                          (df_b["date"].dt.day == 1) & 
-                          (df_b["date"].dt.hour == 0) & 
-                          (df_b["date"].dt.minute == 0))]
+        
         
         # --- CORRECTION POUR LES 14 BORNES ---
         # Regrouper les lignes par date et sommer les puissances des 14 bornes
