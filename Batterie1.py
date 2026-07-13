@@ -200,7 +200,7 @@ if fichier_conso is not None and fichier_prod is not None:
         # ----------------------------------------------------
         with tab1:
             st.markdown("---")
-            st.header("Dimensionnement du Stockage")
+            st.header("Simulation temporelle courte durée (< 1 mois) ")
 
             col_bat1, col_bat2 = st.columns(2)
             capacite_batterie = col_bat1.slider("Capacité (kWh)", min_value=0.0, max_value=300.0, value=50.0, step=1.0, help="Volume total d'énergie stockable.")
