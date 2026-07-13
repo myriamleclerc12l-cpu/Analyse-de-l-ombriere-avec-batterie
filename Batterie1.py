@@ -189,7 +189,7 @@ if fichier_conso is not None and fichier_prod is not None:
         # CREATION DES QUATRE ONGLETS
         tab1, tab2, tab3, tab4 = st.tabs([
     "Simulation Temporelle",
-    "Simulation Longue Durée"
+    "Simulation Longue Durée",
     "Isoler le Gain de la Batterie",
     "Analyse Annuelle"
     
