@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import io # Ajout de la bibliothèque io pour lire le format spécial Enedis
 
 # ==========================================
 # 0. PARAMÈTRES ET CONFIGURATION
@@ -32,7 +33,7 @@ st.markdown("""
 # ==========================================
 
 @st.cache_data
-def charger_donnees_reelles(file_conso, file_prod):
+def charger_donnees_reelles(file_conso, file_prod, file_bornes):
     if file_conso.name.endswith('.csv'):
         df_c = pd.read_csv(file_conso)
     else:
@@ -58,6 +59,58 @@ def charger_donnees_reelles(file_conso, file_prod):
     df = pd.concat([df_c["conso_kW"], df_p["prod_kW"]], axis=1)
     df = df.fillna(0)
     df.sort_index(inplace=True)
+    
+    # --- Ajout des bornes de recharge (Format Enedis) ---
+    if file_bornes is not None:
+       try:
+        # Lecture sécurisée du contenu (nécessaire pour contourner les en-têtes complexes d'Enedis)
+        content = file_bornes.getvalue().decode('utf-8', errors='replace')
+        
+        # Recherche dynamique de la ligne d'en-tête (où se trouve le mot 'horodate')
+        skip_lines = 0
+        for i, line in enumerate(content.split('\n')):
+            if 'horodate' in line.lower() or 'date' in line.lower():
+                skip_lines = i
+                break
+                
+        # Lecture avec pandas en sautant les lignes inutiles, séparateur point-virgule
+        df_b = pd.read_csv(io.StringIO(content), sep=';', skiprows=skip_lines)
+        
+        # Détection dynamique des colonnes utiles
+        date_col = [col for col in df_b.columns if 'horodate' in col.lower() or 'date' in col.lower()][0]
+        val_col = [col for col in df_b.columns if 'valeur' in col.lower() or 'soutirage' in col.lower() or 'puissance' in col.lower()][0]
+        
+        df_b = df_b[[date_col, val_col]].copy()
+        df_b.columns = ["date", "valeur"]
+        df_b["date"] = pd.to_datetime(df_b["date"], utc=True)
+        
+        # Remplacer les virgules par des points pour la conversion en numérique
+        if df_b["valeur"].dtype == object:
+            df_b["valeur"] = df_b["valeur"].str.replace(',', '.').astype(float)
+        
+        # --- CORRECTION POUR LES 14 BORNES ---
+        # Regrouper les lignes par date et sommer les puissances des 14 bornes
+        df_b = df_b.groupby("date")["valeur"].sum().reset_index()
+        # -------------------------------------
+        
+        df_b.set_index("date", inplace=True)
+        
+        # Les fichiers Enedis fournissent souvent des Watts.
+        # Astuce : si la valeur max dépasse 1000, c'est que ce sont des Watts. On convertit en kW.
+        if df_b["valeur"].max() > 1000:
+            df_b["conso_bornes_kW"] = df_b["valeur"] / 1000.0
+        else:
+            df_b["conso_bornes_kW"] = df_b["valeur"]
+        
+        # Fusion avec le dataframe principal
+        df = df.join(df_b["conso_bornes_kW"], how='left')
+        df["conso_bornes_kW"] = df["conso_bornes_kW"].fillna(0)
+        
+        # Additionner la consommation des bornes à la consommation du siège
+        df["conso_kW"] = df["conso_kW"] + df["conso_bornes_kW"]
+        
+       except Exception as e:
+        st.error(f"Erreur lors de la lecture du fichier Enedis des bornes : {e}")
     return df
 
 def simuler_systeme_avec_batterie(df, capacite_kwh, p_max_kw=3.0, soc_initial_pct=0.0):
@@ -104,6 +157,7 @@ def simuler_systeme_avec_batterie(df, capacite_kwh, p_max_kw=3.0, soc_initial_pc
     df_res["Autoconso_Totale_kW"] = np.array(autoconso_directe) + np.array(autoconso_batterie)
     df_res["Import_Reseau_kW"] = import_reseau
     df_res["Export_Reseau_kW"] = export_reseau
+    
     
     return df_res, dt
 
@@ -190,7 +244,7 @@ if fichier_conso is not None and fichier_prod is not None:
         tab1, tab2, tab3, tab4 = st.tabs([
     "Simulation Temporelle Courte Durée",
     "Simulation Temporelle Longue Durée",
-    "Isoler le Gain de la Batterie",
+    "Gain de la Batterie",
     "Analyse Annuelle"
     
         ])
@@ -203,7 +257,7 @@ if fichier_conso is not None and fichier_prod is not None:
             st.header("Simulation temporelle courte durée (< 1 mois) ")
             st.markdown("""
        Cet onglet est adapté à l'analyse des courbes de charges, de production et de la capacité utilisé de la batterie sur 
-       périodes courtes (D'une journée à quelques semaines) avec un pas de temps de 30 min, 
+       périodes courtes (D'une journée à quelques semaines) avec un pas de temps de 30 min. 
        
        """  )
 
