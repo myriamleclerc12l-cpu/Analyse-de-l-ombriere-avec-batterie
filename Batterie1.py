@@ -340,114 +340,130 @@ if fichier_conso is not None and fichier_prod is not None:
             
             
         with tab2:
-             st.header("Simulation Longue Durée (> 1 mois)")
-             st.markdown("""
-        Cet onglet est adapté à l'analyse de périodes longues (plusieurs semaines à plusieurs mois), 
-        pour lesquelles le graphique détaillé de l'onglet **« Simulation Temporelle »** devient illisible 
-        (trop de points à pas de 30 minutes).
+            st.header("Simulation Longue Durée (> 1 mois)")
+            st.markdown("""
+            Cet onglet est adapté à l'analyse de périodes longues (plusieurs semaines à plusieurs mois), 
+            pour lesquelles le graphique détaillé de l'onglet **« Simulation Temporelle »** devient illisible 
+            (trop de points à pas de 30 minutes).
 
-        Le calcul de la batterie est effectué à la résolution complète des données (pour garantir un bilan 
-        énergétique exact), mais **l'affichage est resserré à 1 point par jour** : le pic de consommation 
-        et le pic de production de chaque journée, ainsi que l'état de charge moyen de la batterie.
-        """  )
+            Le calcul de la batterie est effectué à la résolution complète des données (pour garantir un bilan 
+            énergétique exact), mais **l'affichage est resserré à 1 point par jour** : le pic de consommation 
+            et le pic de production de chaque journée, ainsi que l'état de charge de la batterie.
+            """)
 
-             if (date_fin - date_debut).days < 30:
-                 st.warning("La période sélectionnée fait moins d'un mois. Pour une vision détaillée, "
-                       "privilégiez plutôt l'onglet « Simulation Temporelle ».")
+            if (date_fin - date_debut).days < 30:
+                st.warning("La période sélectionnée fait moins d'un mois. Pour une vision détaillée, "
+                           "privilégiez plutôt l'onglet « Simulation Temporelle ».")
 
-             col_bat1_ld, col_bat2_ld = st.columns(2)
-             capacite_batterie_ld = col_bat1_ld.slider(
+            col_bat1_ld, col_bat2_ld = st.columns(2)
+            capacite_batterie_ld = col_bat1_ld.slider(
                 "Capacité (kWh)", min_value=0.0, max_value=300.0, value=50.0, step=1.0,
                 key="cap_longue_duree", help="Volume total d'énergie stockable."
-             )
-             soc_initial_ld = col_bat2_ld.slider(
-               "Charge initiale (%)", min_value=0, max_value=100, value=0, step=5,
+            )
+            soc_initial_ld = col_bat2_ld.slider(
+                "Charge initiale (%)", min_value=0, max_value=100, value=0, step=5,
                 key="soc_longue_duree", help="Niveau de la batterie au début de la période sélectionnée."
-             )
-             puissance_onduleur_ld = capacite_batterie_ld / 2.0
-             st.info(f"Règle appliquée : puissance de l'onduleur fixée à {puissance_onduleur_ld:.1f} kW "
-                f"(moitié de la capacité de stockage).")
+            )
+            puissance_onduleur_ld = capacite_batterie_ld / 2.0
+            st.info(f"Règle appliquée : puissance de l'onduleur fixée à {puissance_onduleur_ld:.1f} kW "
+                    f"(moitié de la capacité de stockage).")
 
-             afficher_reseau_ld = st.checkbox(
+            afficher_reseau_ld = st.checkbox(
                 "Afficher aussi les achats/injections réseau (cumul journalier, en kWh/j)",
-                 value=False,
-                 key="chk_reseau_ld",
-                 help="Ajoute l'énergie totale achetée et injectée au réseau chaque jour (kWh cumulés "
-                 "sur ~48 pas de 30 min). Attention : ce sont des valeurs d'énergie, à ne pas comparer "
-                 "directement aux courbes de puissance (kW) affichées par défaut."
-             )
+                value=False,
+                key="chk_reseau_ld",
+                help="Ajoute l'énergie totale achetée et injectée au réseau chaque jour (kWh cumulés "
+                "sur ~48 pas de 30 min). Attention : ce sont des valeurs d'énergie, à ne pas comparer "
+                "directement aux courbes de puissance (kW) affichées par défaut."
+            )
 
-        # --- Simulation à pleine résolution (nécessaire pour un bilan énergétique correct) ---
-             df_simu_ld, dt_ld = simuler_systeme_avec_batterie(
+            affichage_soc_ld = st.radio(
+                "Affichage de l'état de charge :",
+                ["Pic quotidien", "Moyenne quotidienne"],
+                horizontal=True,
+                key="radio_soc_ld",
+                help="Pic quotidien : la charge maximale atteinte dans la journée (permet de voir si la "
+                "batterie a rejoint 100 %). Moyenne quotidienne : le niveau moyen sur la journée, plus "
+                "représentatif du taux d'utilisation réel, mais n'atteint jamais 100 % même les jours où "
+                "la batterie s'est pleinement chargée."
+            )
+
+            # --- Simulation à pleine résolution (nécessaire pour un bilan énergétique correct) ---
+            df_simu_ld, dt_ld = simuler_systeme_avec_batterie(
                 df, capacite_batterie_ld, puissance_onduleur_ld, soc_initial_ld
             )
 
-        # --- Ré-échantillonnage : 1 point par jour (les 3 courbes de base) ---
-             jours = df_simu_ld.index.date
-             conso_pic_j = df_simu_ld.groupby(jours)["conso_kW"].max()
-             prod_pic_j  = df_simu_ld.groupby(jours)["prod_kW"].max()
-             soc_moyen_j = df_simu_ld.groupby(jours)["SoC_pourcent"].mean()
- 
-             series_a_convertir = [conso_pic_j, prod_pic_j, soc_moyen_j]
+            # --- Ré-échantillonnage : 1 point par jour (les 3 courbes de base) ---
+            jours = df_simu_ld.index.date
+            conso_pic_j = df_simu_ld.groupby(jours)["conso_kW"].max()
+            prod_pic_j  = df_simu_ld.groupby(jours)["prod_kW"].max()
 
-        # --- Réseau : optionnel, cumul journalier en kWh ---
-             if afficher_reseau_ld:
+            if affichage_soc_ld == "Pic quotidien":
+                soc_j = df_simu_ld.groupby(jours)["SoC_pourcent"].max()
+                soc_nom = "Pic d'état de charge (%)"
+            else:
+                soc_j = df_simu_ld.groupby(jours)["SoC_pourcent"].mean()
+                soc_nom = "État de charge moyen (%)"
+
+            series_a_convertir = [conso_pic_j, prod_pic_j, soc_j]
+
+            # --- Réseau : optionnel, cumul journalier en kWh ---
+            if afficher_reseau_ld:
                 import_j = df_simu_ld.groupby(jours)["Import_Reseau_kW"].sum() * dt_ld
                 export_j = df_simu_ld.groupby(jours)["Export_Reseau_kW"].sum() * dt_ld
                 series_a_convertir += [import_j, export_j]
 
-             for serie in series_a_convertir:
+            for serie in series_a_convertir:
                 serie.index = pd.to_datetime(serie.index)
 
-        # --- Graphique ---
-             fig_ld = make_subplots(specs=[[{"secondary_y": True}]])
+            # --- Graphique ---
+            fig_ld = make_subplots(specs=[[{"secondary_y": True}]])
 
-             if afficher_reseau_ld:
+            if afficher_reseau_ld:
                 fig_ld.add_trace(go.Bar(x=import_j.index, y=import_j.values,
                     name="Achat Réseau (kWh/j)", marker_color="rgba(255, 0, 0, 0.3)"), secondary_y=False)
                 fig_ld.add_trace(go.Bar(x=export_j.index, y=export_j.values,
                     name="Injection Réseau (kWh/j)", marker_color="rgba(0, 255, 0, 0.3)"), secondary_y=False)
 
-             fig_ld.add_trace(go.Scatter(x=conso_pic_j.index, y=conso_pic_j.values, mode="lines",
+            fig_ld.add_trace(go.Scatter(x=conso_pic_j.index, y=conso_pic_j.values, mode="lines",
                 name="Pic de consommation (kW/j)", line=dict(color="royalblue", width=2)), secondary_y=False)
-      
-             fig_ld.add_trace(go.Scatter(x=prod_pic_j.index, y=prod_pic_j.values, mode="lines",
+
+            fig_ld.add_trace(go.Scatter(x=prod_pic_j.index, y=prod_pic_j.values, mode="lines",
                 name="Pic de production (kW/j)", line=dict(color="#FF8C00", width=2)), secondary_y=False)
 
-             fig_ld.add_trace(go.Scatter(x=soc_moyen_j.index, y=soc_moyen_j.values, mode="lines",
-                name="État de charge moyen (%)", line=dict(color="purple", width=2),
+            fig_ld.add_trace(go.Scatter(x=soc_j.index, y=soc_j.values, mode="lines",
+                name=soc_nom, line=dict(color="purple", width=2),
                 fill="tozeroy", fillcolor="rgba(128, 0, 128, 0.1)"), secondary_y=True)
-     
-             fig_ld.update_layout(
+
+            fig_ld.update_layout(
                 title=dict(text="Simulation longue durée — 1 point par jour", font=dict(size=18)),
                 hovermode="x unified", barmode="overlay",
                 legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
                 margin=dict(t=60, b=100, l=40, r=40)
-             )
-             axe_titre = "Puissance (kW)" + (" / Énergie cumulée (kWh/j)" if afficher_reseau_ld else "")
-             fig_ld.update_yaxes(title_text=axe_titre, secondary_y=False)
-             fig_ld.update_yaxes(title_text="État de charge moyen (%)", range=[0, 105], secondary_y=True)
-             fig_ld.update_xaxes(type="date", title_text="Jour", gridcolor="rgba(200, 200, 200, 0.2)")
+            )
+            axe_titre = "Puissance (kW)" + (" / Énergie cumulée (kWh/j)" if afficher_reseau_ld else "")
+            fig_ld.update_yaxes(title_text=axe_titre, secondary_y=False)
+            fig_ld.update_yaxes(title_text=soc_nom, range=[0, 105], secondary_y=True)
+            fig_ld.update_xaxes(type="date", title_text="Jour", gridcolor="rgba(200, 200, 200, 0.2)")
 
-             st.plotly_chart(fig_ld, use_container_width=True)
+            st.plotly_chart(fig_ld, use_container_width=True)
 
-        # --- KPIs sur la période complète (calculés à pleine résolution, inchangés) ---
-             st.subheader("Performances du système sur la période")
-             col_kpi1_ld, col_kpi2_ld, col_kpi3_ld = st.columns(3)
+            # --- KPIs sur la période complète (calculés à pleine résolution, inchangés) ---
+            st.subheader("Performances du système sur la période")
+            col_kpi1_ld, col_kpi2_ld, col_kpi3_ld = st.columns(3)
 
-             conso_totale_ld = df_simu_ld["conso_kW"].sum() * dt_ld
-             prod_totale_ld = df_simu_ld["prod_kW"].sum() * dt_ld
-             export_totale_ld = df_simu_ld["Export_Reseau_kW"].sum() * dt_ld
-             autoconso_totale_ld = df_simu_ld["Autoconso_Totale_kW"].sum() * dt_ld
+            conso_totale_ld = df_simu_ld["conso_kW"].sum() * dt_ld
+            prod_totale_ld = df_simu_ld["prod_kW"].sum() * dt_ld
+            export_totale_ld = df_simu_ld["Export_Reseau_kW"].sum() * dt_ld
+            autoconso_totale_ld = df_simu_ld["Autoconso_Totale_kW"].sum() * dt_ld
 
-             energie_pv_valorisee_ld = prod_totale_ld - export_totale_ld
-             tac_ld = (energie_pv_valorisee_ld / prod_totale_ld * 100) if prod_totale_ld > 0 else 0
-             tap_ld = (autoconso_totale_ld / conso_totale_ld * 100) if conso_totale_ld > 0 else 0
+            energie_pv_valorisee_ld = prod_totale_ld - export_totale_ld
+            tac_ld = (energie_pv_valorisee_ld / prod_totale_ld * 100) if prod_totale_ld > 0 else 0
+            tap_ld = (autoconso_totale_ld / conso_totale_ld * 100) if conso_totale_ld > 0 else 0
 
-             col_kpi1_ld.metric("Taux d'Autoconso. (TAC)", f"{tac_ld:.1f} %")
-             col_kpi2_ld.metric("Taux d'Autoprod. (TAP)", f"{tap_ld:.1f} %")
-             col_kpi3_ld.metric("Énergie totale économisée", f"{autoconso_totale_ld:.1f} kWh")
-
+            col_kpi1_ld.metric("Taux d'Autoconso. (TAC)", f"{tac_ld:.1f} %")
+            col_kpi2_ld.metric("Taux d'Autoprod. (TAP)", f"{tap_ld:.1f} %")
+            col_kpi3_ld.metric("Énergie totale économisée", f"{autoconso_totale_ld:.1f} kWh")
         # ----------------------------------------------------
         # ONGLET 3 : Isoler le Gain de la Batterie
         # ----------------------------------------------------
