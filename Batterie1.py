@@ -226,7 +226,7 @@ def trouver_capacite_ideale(df_res, type_methode, param):
 # 2. INTERFACE STREAMLIT
 # ==========================================
 
-st.title("Simulation d'Autoconsommation et Stockage")
+st.title( "TE13 — Dimensionnement de la Batterie de stockage")
 
 # --- Panneau latéral : Données ---
 st.sidebar.header("Données réelles")
