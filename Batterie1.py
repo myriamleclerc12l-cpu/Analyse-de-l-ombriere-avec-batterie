@@ -317,6 +317,7 @@ if fichier_conso is not None and fichier_prod is not None:
 
             st.plotly_chart(fig_bat, use_container_width=True)
 
+            
             # KPIs
             st.subheader("Performances du système sur la période")
             col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
@@ -326,13 +327,22 @@ if fichier_conso is not None and fichier_prod is not None:
             export_totale = df_simu["Export_Reseau_kW"].sum() * dt
             autoconso_totale = df_simu["Autoconso_Totale_kW"].sum() * dt 
 
+            # Référence : autoconsommation SANS batterie (autoconsommation directe uniquement)
+            autoconso_sans_bat = np.minimum(df_simu["conso_kW"], df_simu["prod_kW"]).sum() * dt
+            gain_net = max(0, autoconso_totale - autoconso_sans_bat)
+
             energie_pv_valorisee = prod_totale - export_totale
             nouveau_tac = (energie_pv_valorisee / prod_totale * 100) if prod_totale > 0 else 0
             nouveau_tap = (autoconso_totale / conso_totale * 100) if conso_totale > 0 else 0
 
             col_kpi1.metric("Taux d'Autoconso. (TAC)", f"{nouveau_tac:.1f} %")
             col_kpi2.metric("Taux d'Autoprod. (TAP)", f"{nouveau_tap:.1f} %")
-            col_kpi3.metric("Énergie totale économisée", f"{autoconso_totale:.1f} kWh")
+            col_kpi3.metric(
+                "Énergie totale économisée (gain net)",
+                f"{gain_net:.1f} kWh",
+                help=f"Gain net apporté par la batterie par rapport à une installation sans stockage, "
+                     f"qui autoconsommerait naturellement {autoconso_sans_bat:.1f} kWh sur cette période."
+            )
             
          # ----------------------------------------------------
          # ONGLET 2 : simulation temporelle longue durée
