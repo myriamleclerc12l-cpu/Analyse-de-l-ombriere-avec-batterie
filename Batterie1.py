@@ -484,7 +484,7 @@ if fichier_conso is not None and fichier_prod is not None:
 
             **Qu'est-ce que le "gain net" ?** C'est la quantité d'énergie solaire supplémentaire autoconsommée grâce à la batterie,
             par rapport à une installation identique fonctionnant sans stockage (autoconsommation directe uniquement, sans surplus stocké ni redistribué).
-            Concrètement : *Gain net = Énergie autoconsommée AVEC batterie − Énergie autoconsommée SANS batterie*.
+            Concrètement : *Gain net = Énergie autoconsommée avec batterie − Énergie autoconsommée sans batterie*.
             Il représente donc les kWh de production solaire qui, sans la batterie, auraient été perdus (renvoyés au réseau) et qui sont désormais utilisés sur place.
             """)
             
