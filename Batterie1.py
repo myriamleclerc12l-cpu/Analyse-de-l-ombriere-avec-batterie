@@ -63,69 +63,67 @@ def charger_donnees_reelles(file_conso, file_prod, file_bornes):
     # --- Ajout des bornes de recharge (Format Enedis) ---
     if file_bornes is not None:
        try:
-        # Lecture sécurisée du contenu (nécessaire pour contourner les en-têtes complexes d'Enedis)
         content = file_bornes.getvalue().decode('utf-8', errors='replace')
         
-        # Recherche dynamique de la ligne d'en-tête (où se trouve le mot 'horodate')
         skip_lines = 0
         for i, line in enumerate(content.split('\n')):
             if 'horodate' in line.lower() or 'date' in line.lower():
                 skip_lines = i
                 break
                 
-        # Lecture avec pandas en sautant les lignes inutiles, séparateur point-virgule
         df_b = pd.read_csv(io.StringIO(content), sep=';', skiprows=skip_lines)
         
-        # Détection dynamique des colonnes utiles
         horodate_cols = [col for col in df_b.columns if 'horodate' in col.lower()]
         date_cols = [col for col in df_b.columns if 'date' in col.lower()]
             
         if horodate_cols:
                 date_col = horodate_cols[0]
-           
         elif date_cols:
                 date_col = date_cols[0]
         else:
                 st.error("Aucune colonne de date ou d'horodate trouvée.")
                 return df
+     
         val_col = [col for col in df_b.columns if 'valeur' in col.lower() or 'soutirage' in col.lower() or 'puissance' in col.lower()]
-
         if not val_col:
              st.error("Aucune colonne de valeur trouvée.")
              return df
-
         val_col = val_col[0]
-        df_b = df_b[[date_col, val_col]].copy()
-        df_b.columns = ["date", "valeur"]
+
+        prm_cols = [col for col in df_b.columns if 'prm' in col.lower()]
+
+        if prm_cols:
+            prm_col = prm_cols[0]
+            df_b = df_b[[prm_col, date_col, val_col]].copy()
+            df_b.columns = ["prm", "date", "valeur"]
+        else:
+            df_b = df_b[[date_col, val_col]].copy()
+            df_b.columns = ["date", "valeur"]
+            df_b["prm"] = "unique"
+
         df_b["date"] = pd.to_datetime(df_b["date"], utc=True)
-        
-        # Remplacer les virgules par des points pour la conversion en numérique
+
         if df_b["valeur"].dtype == object:
             df_b["valeur"] = df_b["valeur"].str.replace(',', '.').astype(float)
-        
-        
-        
-        # --- CORRECTION POUR LES 14 BORNES ---
-        # Regrouper les lignes par date et sommer les puissances des 14 bornes
-        df_b = df_b.groupby("date")["valeur"].sum().reset_index()
-        # -------------------------------------
-        
-        df_b.set_index("date", inplace=True)
-        
-        # Les fichiers Enedis fournissent souvent des Watts.
-        # Astuce : si la valeur max dépasse 1000, c'est que ce sont des Watts. On convertit en kW.
-        
-            
-        df_b["conso_bornes_kW"] = df_b["valeur"] / 1000.0
-        
-        
+
+        # --- Ré-échantillonnage PAR BORNE sur la grille du dataframe principal ---
+        pas_principal = df.index[1] - df.index[0]
+
+        series_par_borne = []
+        for prm, g in df_b.groupby("prm"):
+            s = g.set_index("date")["valeur"].sort_index()
+            s = s.resample(pas_principal).mean()
+            series_par_borne.append(s)
+
+        conso_bornes_totale = pd.concat(series_par_borne, axis=1, sort=False).sum(axis=1, skipna=True)
+        df_b_final = conso_bornes_totale.to_frame("valeur")
+        df_b_final["conso_bornes_kW"] = df_b_final["valeur"] / 1000.0
+
         # Fusion avec le dataframe principal
-        df = df.join(df_b["conso_bornes_kW"], how='left')
+        df = df.join(df_b_final["conso_bornes_kW"], how='left')
         df["conso_bornes_kW"] = df["conso_bornes_kW"].fillna(0)
-        
-        # Additionner la consommation des bornes à la consommation du siège
         df["conso_kW"] = df["conso_kW"] + df["conso_bornes_kW"]
-        
+
        except Exception as e:
         st.error(f"Erreur lors de la lecture du fichier Enedis des bornes : {e}")
     return df
