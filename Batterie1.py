@@ -947,9 +947,7 @@ if fichier_conso is not None and fichier_prod is not None:
                           "seule structure utilisée en pratique sur ce site.")
 
                st.markdown("#### TURPE (Acheminement) — valeurs informatives, non modifiables")
-               st.info("⚠️ Valeurs fictives par défaut, en attente de la grille CRE réelle applicable au TE13. "
-                       "Affichées ici pour information uniquement — pour les changer, modifiez directement "
-                       "le dictionnaire `TARIFS_TURPE` dans le code, pas ici.")
+
 
                col_turpe = st.columns(4)
                for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
