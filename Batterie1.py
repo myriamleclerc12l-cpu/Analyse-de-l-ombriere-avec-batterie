@@ -261,7 +261,7 @@ PRIX_CEE = 11.23  # €/MWh — obligations d'économies d'énergie
 
 def classer_cadran(timestamp, structure_cadran):
     """
-    ⚠️ Calendrier HP/HC et saisons par DÉFAUT, à confirmer avec le contrat Enedis réel du TE13 :
+     Calendrier HP/HC et saisons par DÉFAUT, à confirmer avec le contrat Enedis réel du TE13 :
        - Heures Creuses : 22h-6h  /  Heures Pleines : 6h-22h
        - Saison haute : novembre à mars  /  Saison basse : avril à octobre
        - "Pointe" (C2) non définie précisément ici -> traitée comme HPSh/HPSb par défaut
@@ -354,10 +354,9 @@ def calculer_flux_et_indicateurs(gain_net_kwh_an1, capex, opex_annuel, prix_acha
 def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_an1, prix_moyen_ttc_an1,
                               taux_inflation_energie, revenu_producteur_an1, taux_inflation_revenu_producteur,
                               duree_vie_ans, degradation_pct_an=0.0):
-    """Reproduit le format du tableau de référence Enolab/Enogrid."""
     lignes = [{
-        "Année": "A0", "CAPEX (€ HT)": -capex, "OPEX (€ HT)": None,
-        "Economie ACI (€ TTC)": None, "Revenu producteur (€)": None,
+        "Année": "A0", "CAPEX (€ HT)": -capex, "OPEX (€ HT)": np.nan,
+        "Economie ACI (€ TTC)": np.nan, "Revenu producteur (€)": np.nan,
         "Economie nette (€)": -capex, "Flux cumulés (€)": -capex,
     }]
     flux_cumule = -capex
@@ -371,7 +370,7 @@ def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_a
         economie_nette = economie_aci + revenu_producteur + opex
         flux_cumule += economie_nette
         lignes.append({
-            "Année": f"A{annee}", "CAPEX (€ HT)": None, "OPEX (€ HT)": opex,
+            "Année": f"A{annee}", "CAPEX (€ HT)": np.nan, "OPEX (€ HT)": opex,
             "Economie ACI (€ TTC)": economie_aci, "Revenu producteur (€)": revenu_producteur,
             "Economie nette (€)": economie_nette, "Flux cumulés (€)": flux_cumule,
         })
@@ -1060,11 +1059,13 @@ if fichier_conso is not None and fichier_prod is not None:
                     duree_vie_ans=20, degradation_pct_an=degradation_pct
                 )
 
+                def fmt_eur(x):
+                    return "" if pd.isna(x) else f"{x:,.0f}"
+
                 st.dataframe(df_enolab.style.format({
-                    "CAPEX (€ HT)": "{:,.0f}", "OPEX (€ HT)": "{:,.0f}",
-                    "Economie ACI (€ TTC)": "{:,.0f}", "Revenu producteur (€)": "{:,.0f}",
-                    "Economie nette (€)": "{:,.0f}", "Flux cumulés (€)": "{:,.0f}",
-                }, na_rep=""))      
-      
+                    "CAPEX (€ HT)": fmt_eur, "OPEX (€ HT)": fmt_eur,
+                    "Economie ACI (€ TTC)": fmt_eur, "Revenu producteur (€)": fmt_eur,
+                    "Economie nette (€)": fmt_eur, "Flux cumulés (€)": fmt_eur,
+                }))
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
