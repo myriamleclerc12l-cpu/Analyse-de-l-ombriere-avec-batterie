@@ -757,6 +757,7 @@ if fichier_conso is not None and fichier_prod is not None:
 
                             resultats_t4.append({
                                 "Capacité (kWh)": cap,
+                                "Autoconso Totale (kWh)": autoconso_tot_t4,
                                 "Gain Énergétique (kWh)": gain_batterie_t4,
                                 "TAP (%)": tap_val_t4,
                                 "TAC (%)": tac_val_t4
@@ -981,13 +982,14 @@ if fichier_conso is not None and fichier_prod is not None:
                 resultats_eco = []
                 for _, row in df_res_t4.iterrows():
                     cap = row["Capacité (kWh)"]
-                    gain_net_kwh = row["Gain Énergétique (kWh)"]
+                    autoconso_totale_kwh = row["Autoconso Totale (kWh)"]
                     capex = capex_unitaire * cap + capex_fixe
                     opex_annuel = capex * opex_pct
                     indic = calculer_flux_et_indicateurs(
-                        gain_net_kwh, capex, opex_annuel, prix_ttc_moyen, prix_vente_reseau,
+                        autoconso_totale_kwh, capex, opex_annuel, prix_ttc_moyen, prix_vente_reseau,
                         taux_actualisation, duree_vie_ans, degradation_pct
                     )
+               
                     resultats_eco.append({
                         "Capacité (kWh)": cap, "CAPEX (€)": capex,
                         "VAN (€)": indic["van"], "TRI (%)": indic["tri"], "LCOS (€/kWh)": indic["lcos"],
@@ -1042,7 +1044,7 @@ if fichier_conso is not None and fichier_prod is not None:
                 capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
                     min_value=0.0, max_value=300.0, value=250.0, step=5.0)
                 ligne_capacite = df_res_t4.iloc[(df_res_t4["Capacité (kWh)"] - capacite_etude).abs().argsort()[:1]].iloc[0]
-                gain_net_kwh_reel = ligne_capacite["Gain Énergétique (kWh)"]
+                autoconso_totale_kwh_reel = ligne_capacite["Autoconso Totale (kWh)"]
 
                 col_v1, col_v2, col_v3 = st.columns(3)
                 opex_an1_v2 = col_v1.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=4600.0, step=100.0)
@@ -1059,10 +1061,11 @@ if fichier_conso is not None and fichier_prod is not None:
                 capex_v2 = col_v5.number_input("CAPEX total (€ HT)", min_value=0.0,
                     value=capacite_etude * 1000.0, step=1000.0,
                     help="Valeur fictive par défaut (1 000 €/kWh). À remplacer par le devis réel.")
+                
 
                 df_enolab = calculer_tableau_enolab(
                     capex=capex_v2, opex_an1=opex_an1_v2, taux_inflation_opex=taux_inflation_opex,
-                    gain_net_kwh_an1=gain_net_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen,
+                    gain_net_kwh_an1==autoconso_totale_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen,
                     taux_inflation_energie=taux_inflation_energie,
                     revenu_producteur_an1=revenu_producteur_an1, taux_inflation_revenu_producteur=taux_inflation_opex,
                     duree_vie_ans=20, degradation_pct_an=degradation_pct
