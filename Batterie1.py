@@ -928,33 +928,35 @@ if fichier_conso is not None and fichier_prod is not None:
                # ==========================================
                # 1. TARIFICATION RÉELLE (BPU + TURPE)
                # ==========================================
-               st.subheader("Tarification réelle (BPU Octopus 2026 + TURPE + Taxes)")
+               
+               st.subheader("Tarification réelle (BPU Octopus Energy 2026)")
+               st.caption("Le prix payé se décompose en 3 familles de coûts, additionnées ci-dessous pour "
+                          "obtenir le prix complet évité : la fourniture (facturée par Octopus, via le BPU), "
+                          "l'acheminement (TURPE, facturé par Enedis) et les taxes.")
 
+               st.markdown("##### 1. Fourniture — BPU Octopus Energy 2026")
                SEGMENTS_DISPONIBLES = ["C5 - Bâtiments et équipements", "C4"]
                STRUCTURE_CADRAN_FIXE = "4 cadrans saisonniers"
 
                col_t1, col_t2 = st.columns(2)
                with col_t1:
-                   st.markdown("**Siège (Fourniture)**")
+                   st.markdown("**Siège**")
                    segment_siege = st.selectbox("Segment tarifaire — Siège", SEGMENTS_DISPONIBLES, key="segment_siege")
                with col_t2:
-                   st.markdown("**Bornes de recharge (Fourniture)**")
+                   st.markdown("**Bornes de recharge**")
                    segment_bornes = st.selectbox("Segment tarifaire — Bornes", SEGMENTS_DISPONIBLES, key="segment_bornes")
 
                cadran_siege = STRUCTURE_CADRAN_FIXE
                cadran_bornes = STRUCTURE_CADRAN_FIXE
-               st.caption("Structure de comptage fixée à 4 cadrans saisonniers (HPSh / HCSh / HPSb / HCSb) — "
-                          "seule structure utilisée en pratique sur ce site.")
+               st.caption("Structure de comptage fixée à 4 cadrans saisonniers (HPSh / HCSh / HPSb / HCSb).")
 
-               st.markdown("#### TURPE (Acheminement) — valeurs informatives, non modifiables")
-
-
+               st.markdown("##### 2. Acheminement — TURPE (informatif, non modifiable)")
                col_turpe = st.columns(4)
                for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
                    col_turpe[i].metric(f"TURPE {cadran}", f"{TARIFS_TURPE[cadran]:.2f} €/MWh")
-
                turpe_dict = TARIFS_TURPE
 
+               st.markdown("##### 3. Taxes et TVA")
                col_t3, col_t4, col_t5 = st.columns(3)
                inclure_go = col_t3.checkbox("Inclure les Garanties d'Origine (GO)", value=True)
                accise_eur_kwh = col_t4.number_input("Accise électricité (€/kWh)", min_value=0.0, value=0.0250,
@@ -967,7 +969,6 @@ if fichier_conso is not None and fichier_prod is not None:
 
                prix_ttc_siege, _ = prix_moyen_pondere_ttc(conso_siege_seule, dt_actuel, segment_siege, cadran_siege,
                    inclure_go, accise_eur_mwh, taux_tva, turpe_dict)
-
                if "conso_bornes_kW" in df.columns and df["conso_bornes_kW"].sum() > 0:
                    prix_ttc_bornes, _ = prix_moyen_pondere_ttc(df["conso_bornes_kW"], dt_actuel, segment_bornes,
                        cadran_bornes, inclure_go, accise_eur_mwh, taux_tva, turpe_dict)
@@ -980,6 +981,7 @@ if fichier_conso is not None and fichier_prod is not None:
                prix_ttc_moyen = ((prix_ttc_siege * volume_siege + prix_ttc_bornes * volume_bornes) / volume_total
                                   if volume_total > 0 else prix_ttc_siege)
 
+               st.markdown("##### Résultat : prix complet évité (Fourniture + TURPE + Taxes)")
                col_p1, col_p2, col_p3 = st.columns(3)
                col_p1.metric("Prix moyen TTC — Siège", f"{prix_ttc_siege:.4f} €/kWh")
                col_p2.metric("Prix moyen TTC — Bornes", f"{prix_ttc_bornes:.4f} €/kWh")
@@ -1111,11 +1113,15 @@ if fichier_conso is not None and fichier_prod is not None:
 
                def fmt_eur(x):
                     return "" if pd.isna(x) else f"{x:,.0f}"
+               def couleur_flux(x):
+                   if pd.isna(x):
+                         return ""
+                   return "background-color: #C6EFCE; color: #006100" if x >= 0 else "background-color: #FFC7CE; color: #9C0006"
 
                st.dataframe(df_enolab.style.format({
-                "CAPEX (€ HT)": fmt_eur, "OPEX (€ HT)": fmt_eur,
+                    "CAPEX (€ HT)": fmt_eur, "OPEX (€ HT)": fmt_eur,
                     "Economie ACI (€ TTC)": fmt_eur, "Revenu producteur (€)": fmt_eur,
                     "Economie nette (€)": fmt_eur, "Flux cumulés (€)": fmt_eur,
-               }))
+               }).map(couleur_flux, subset=["Flux cumulés (€)"]))
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
