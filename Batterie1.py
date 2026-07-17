@@ -222,28 +222,104 @@ def trouver_capacite_ideale(df_res, type_methode, param):
         idx = int(np.argmax(taps >= seuil))
         return caps[idx]
 
+# ==========================================
+# TARIFS BPU OCTOPUS ENERGY — Année 2026
+# ==========================================
+TARIFS_BPU = {
+    "C5 - Bâtiments et équipements": {
+        "cadrans_disponibles": ["Base (1 cadran)", "HP/HC (2 cadrans)", "4 cadrans saisonniers"],
+        "fourniture": {
+            "Base (1 cadran)": {"Base": 75.81},
+            "HP/HC (2 cadrans)": {"HP": 77.71, "HC": 63.42},
+            "4 cadrans saisonniers": {"HPSh": 105.93, "HCSh": 80.69, "HPSb": 56.01, "HCSb": 50.34},
+        },
+        "capacite": {
+            "Base (1 cadran)": {"Base": 0.59},
+            "HP/HC (2 cadrans)": {"HP": 0.78, "HC": 0.13},
+            "4 cadrans saisonniers": {"HPSh": 1.13, "HCSh": 0.15, "HPSb": 0.00, "HCSb": 0.00},
+        },
+    },
+    "C5 - Éclairage public": {
+        "cadrans_disponibles": ["Base (1 cadran)"],
+        "fourniture": {"Base (1 cadran)": {"Base": 72.81}},
+        "capacite": {"Base (1 cadran)": {"Base": 0.16}},
+    },
+    "C4": {
+        "cadrans_disponibles": ["4 cadrans saisonniers"],
+        "fourniture": {"4 cadrans saisonniers": {"HPSh": 106.73, "HCSh": 77.84, "HPSb": 55.81, "HCSb": 50.09}},
+        "capacite": {"4 cadrans saisonniers": {"HPSh": 1.10, "HCSh": 0.07, "HPSb": 0.00, "HCSb": 0.00}},
+    },
+    "C2": {
+        "cadrans_disponibles": ["5 cadrans (avec Pointe)"],
+        "fourniture": {"5 cadrans (avec Pointe)": {"Pte": 128.36, "HPSh": 106.16, "HCSh": 75.62, "HPSb": 55.60, "HCSb": 47.24}},
+        "capacite": {"5 cadrans (avec Pointe)": {"Pte": 2.79, "HPSh": 0.93, "HCSh": 0.00, "HPSb": 0.00, "HCSb": 0.00}},
+    },
+}
+PRIX_GO = 1.49    # €/MWh — Garanties d'Origine
+PRIX_CEE = 11.23  # €/MWh — obligations d'économies d'énergie
+
+
+def classer_cadran(timestamp, structure_cadran):
+    """
+    ⚠️ Calendrier HP/HC et saisons par DÉFAUT, à confirmer avec le contrat Enedis réel du TE13 :
+       - Heures Creuses : 22h-6h  /  Heures Pleines : 6h-22h
+       - Saison haute : novembre à mars  /  Saison basse : avril à octobre
+       - "Pointe" (C2) non définie précisément ici -> traitée comme HPSh/HPSb par défaut
+    """
+    heure = timestamp.hour
+    mois = timestamp.month
+    est_hc = (heure >= 22) or (heure < 6)
+    est_saison_haute = mois in (11, 12, 1, 2, 3)
+    if structure_cadran == "Base (1 cadran)":
+        return "Base"
+    elif structure_cadran == "HP/HC (2 cadrans)":
+        return "HC" if est_hc else "HP"
+    elif structure_cadran in ("4 cadrans saisonniers", "5 cadrans (avec Pointe)"):
+        if est_saison_haute:
+            return "HCSh" if est_hc else "HPSh"
+        else:
+            return "HCSb" if est_hc else "HPSb"
+    return "Base"
+
+
+def prix_moyen_pondere_ttc(series_puissance_kw, dt_heures, segment, structure_cadran,
+                             inclure_go=True, accise_eur_mwh=25.0, taux_tva=0.20):
+    """Prix moyen pondéré (€/kWh TTC) d'un profil de charge, pondéré par l'énergie réelle par cadran."""
+    tarif_fourniture = TARIFS_BPU[segment]["fourniture"][structure_cadran]
+    tarif_capacite = TARIFS_BPU[segment]["capacite"][structure_cadran]
+    cadrans = series_puissance_kw.index.map(lambda t: classer_cadran(t, structure_cadran))
+    energie_kwh = series_puissance_kw.values * dt_heures
+    df_tmp = pd.DataFrame({"cadran": cadrans, "energie_kwh": energie_kwh})
+    energie_par_cadran = df_tmp.groupby("cadran")["energie_kwh"].sum()
+    cout_total_htt = 0.0
+    for cadran, energie in energie_par_cadran.items():
+        prix_fourniture = tarif_fourniture.get(cadran, 0) / 1000.0
+        prix_capacite = tarif_capacite.get(cadran, 0) / 1000.0
+        prix_go = (PRIX_GO / 1000.0) if inclure_go else 0.0
+        prix_cee = PRIX_CEE / 1000.0
+        prix_accise = accise_eur_mwh / 1000.0
+        prix_htt = prix_fourniture + prix_capacite + prix_go + prix_cee + prix_accise
+        cout_total_htt += energie * prix_htt
+    energie_totale = energie_par_cadran.sum()
+    prix_moyen_htt = cout_total_htt / energie_totale if energie_totale > 0 else 0.0
+    return prix_moyen_htt * (1 + taux_tva), energie_par_cadran
+
+
 def calculer_flux_et_indicateurs(gain_net_kwh_an1, capex, opex_annuel, prix_achat_evite, prix_vente_reseau,
                                    taux_actualisation, duree_vie_ans, degradation_pct_an=0.0):
-    """
-    Calcule le plan de trésorerie et les indicateurs financiers (VAN, TRI, LCOS, Payback, ratio B/C)
-    pour une capacité de batterie donnée.
-    """
-    marge_arbitrage = prix_achat_evite - prix_vente_reseau  # valeur nette captée par kWh de gain net
-
+    """Calcule VAN, TRI, LCOS, Payback et ratio B/C pour une capacité donnée."""
+    marge_arbitrage = prix_achat_evite - prix_vente_reseau
     annees = np.arange(0, duree_vie_ans + 1)
     recettes = np.zeros(duree_vie_ans + 1)
     opex = np.zeros(duree_vie_ans + 1)
     energies = np.zeros(duree_vie_ans + 1)
-
     for annee in range(1, duree_vie_ans + 1):
         facteur_degradation = (1 - degradation_pct_an) ** (annee - 1)
         energies[annee] = gain_net_kwh_an1 * facteur_degradation
         recettes[annee] = energies[annee] * marge_arbitrage
         opex[annee] = opex_annuel
-
     flux = recettes - opex
     flux[0] = -capex
-
     facteurs = 1 / (1 + taux_actualisation) ** annees
     van = float(np.sum(flux * facteurs))
 
@@ -260,26 +336,46 @@ def calculer_flux_et_indicateurs(gain_net_kwh_an1, capex, opex_annuel, prix_acha
             else:
                 hi = mid
         tri = (lo + hi) / 2
-
     couts_actualises = capex + float(np.sum(opex[1:] * facteurs[1:]))
     energie_actualisee = float(np.sum(energies[1:] * facteurs[1:]))
     lcos = couts_actualises / energie_actualisee if energie_actualisee > 0 else float("nan")
-
     cumul = np.cumsum(flux)
     payback = None
     idx_positif = np.where(cumul >= 0)[0]
     if len(idx_positif) > 0 and idx_positif[0] > 0:
         i = idx_positif[0]
         payback = float((i - 1) + (-cumul[i - 1] / flux[i])) if flux[i] != 0 else float(i)
-
     recettes_actualisees = float(np.sum(recettes[1:] * facteurs[1:]))
     ratio_bc = recettes_actualisees / couts_actualises if couts_actualises > 0 else float("nan")
+    return {"van": van, "tri": tri * 100 if tri is not None else None, "lcos": lcos,
+            "payback": payback, "ratio_bc": ratio_bc}
 
-    return {
-        "van": van, "tri": tri * 100 if tri is not None else None, "lcos": lcos,
-        "payback": payback, "ratio_bc": ratio_bc,
-        "flux": flux, "annees": annees, "recettes": recettes, "opex": opex, "energies": energies,
-    }
+
+def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_an1, prix_moyen_ttc_an1,
+                              taux_inflation_energie, revenu_producteur_an1, taux_inflation_revenu_producteur,
+                              duree_vie_ans, degradation_pct_an=0.0):
+    """Reproduit le format du tableau de référence Enolab/Enogrid."""
+    lignes = [{
+        "Année": "A0", "CAPEX (€ HT)": -capex, "OPEX (€ HT)": None,
+        "Economie ACI (€ TTC)": None, "Revenu producteur (€)": None,
+        "Economie nette (€)": -capex, "Flux cumulés (€)": -capex,
+    }]
+    flux_cumule = -capex
+    for annee in range(1, duree_vie_ans + 1):
+        facteur_degradation = (1 - degradation_pct_an) ** (annee - 1)
+        opex = -opex_an1 * (1 + taux_inflation_opex) ** (annee - 1)
+        gain_kwh = gain_net_kwh_an1 * facteur_degradation
+        prix_ttc = prix_moyen_ttc_an1 * (1 + taux_inflation_energie) ** (annee - 1)
+        economie_aci = gain_kwh * prix_ttc
+        revenu_producteur = -revenu_producteur_an1 * (1 + taux_inflation_revenu_producteur) ** (annee - 1)
+        economie_nette = economie_aci + revenu_producteur + opex
+        flux_cumule += economie_nette
+        lignes.append({
+            "Année": f"A{annee}", "CAPEX (€ HT)": None, "OPEX (€ HT)": opex,
+            "Economie ACI (€ TTC)": economie_aci, "Revenu producteur (€)": revenu_producteur,
+            "Economie nette (€)": economie_nette, "Flux cumulés (€)": flux_cumule,
+        })
+    return pd.DataFrame(lignes)
 
 # ==========================================
 # 2. INTERFACE STREAMLIT
@@ -786,12 +882,12 @@ if fichier_conso is not None and fichier_prod is not None:
             st.header("Analyse Économique (Business Plan)")
             st.markdown("""
             Cet onglet valorise financièrement le gain énergétique calculé dans l'onglet 4 (Analyse Annuelle),
-            pour déterminer la capacité de batterie économiquement optimale — pas seulement techniquement
-            optimale.
+            en utilisant les tarifs réels du BPU Octopus Energy 2026, pour déterminer la capacité de batterie
+            économiquement optimale — pas seulement techniquement optimale.
 
-            ⚠️ **Les valeurs de coûts ci-dessous sont fictives**, en attendant les données réelles (coût de la
-            batterie, tarifs d'achat/de vente incluant TURPE et accise). Modifiez les curseurs pour tester
-            différentes hypothèses ; les indicateurs se recalculent automatiquement.
+            ⚠️ **Le CAPEX, l'OPEX, le taux d'actualisation et le prix de vente au réseau restent fictifs**,
+            en attendant les données réelles. Les prix d'achat évités, eux, sont désormais calculés à partir
+            du vrai BPU, pondérés par votre profil de consommation réel.
             """)
 
             if "df_resultats_t4" not in st.session_state:
@@ -800,66 +896,97 @@ if fichier_conso is not None and fichier_prod is not None:
             else:
                 df_res_t4 = st.session_state["df_resultats_t4"]
 
+                # ==========================================
+                # 1. TARIFICATION RÉELLE (BPU) — calculée en premier, réutilisée partout ensuite
+                # ==========================================
+                st.subheader("Tarification réelle (BPU Octopus Energy 2026)")
+
+                col_t1, col_t2 = st.columns(2)
+                with col_t1:
+                    st.markdown("**Siège**")
+                    segment_siege = st.selectbox("Segment tarifaire — Siège", list(TARIFS_BPU.keys()), key="segment_siege")
+                    cadran_siege = st.selectbox("Structure de comptage — Siège",
+                        TARIFS_BPU[segment_siege]["cadrans_disponibles"], key="cadran_siege")
+                with col_t2:
+                    st.markdown("**Bornes de recharge**")
+                    segment_bornes = st.selectbox("Segment tarifaire — Bornes", list(TARIFS_BPU.keys()), key="segment_bornes")
+                    cadran_bornes = st.selectbox("Structure de comptage — Bornes",
+                        TARIFS_BPU[segment_bornes]["cadrans_disponibles"], key="cadran_bornes")
+
+                col_t3, col_t4, col_t5 = st.columns(3)
+                inclure_go = col_t3.checkbox("Inclure les Garanties d'Origine (GO)", value=True)
+                accise_eur_mwh = col_t4.number_input("Accise électricité (€/MWh)", min_value=0.0, value=25.0, step=0.5,
+                    help="Valeur fictive, en attente du taux réel applicable au TE13.")
+                taux_tva = col_t5.number_input("TVA (%)", min_value=0.0, max_value=25.0, value=20.0, step=0.1) / 100.0
+
+                dt_actuel = (df.index[1] - df.index[0]).total_seconds() / 3600.0
+                conso_siege_seule = df["conso_kW"] - df["conso_bornes_kW"] if "conso_bornes_kW" in df.columns else df["conso_kW"]
+
+                prix_ttc_siege, _ = prix_moyen_pondere_ttc(conso_siege_seule, dt_actuel, segment_siege, cadran_siege,
+                    inclure_go, accise_eur_mwh, taux_tva)
+                if "conso_bornes_kW" in df.columns and df["conso_bornes_kW"].sum() > 0:
+                    prix_ttc_bornes, _ = prix_moyen_pondere_ttc(df["conso_bornes_kW"], dt_actuel, segment_bornes,
+                        cadran_bornes, inclure_go, accise_eur_mwh, taux_tva)
+                else:
+                    prix_ttc_bornes = prix_ttc_siege
+
+                volume_siege = conso_siege_seule.sum() * dt_actuel
+                volume_bornes = df["conso_bornes_kW"].sum() * dt_actuel if "conso_bornes_kW" in df.columns else 0
+                volume_total = volume_siege + volume_bornes
+                prix_ttc_moyen = ((prix_ttc_siege * volume_siege + prix_ttc_bornes * volume_bornes) / volume_total
+                                   if volume_total > 0 else prix_ttc_siege)
+
+                col_p1, col_p2, col_p3 = st.columns(3)
+                col_p1.metric("Prix moyen TTC — Siège", f"{prix_ttc_siege:.4f} €/kWh")
+                col_p2.metric("Prix moyen TTC — Bornes", f"{prix_ttc_bornes:.4f} €/kWh")
+                col_p3.metric("Prix moyen pondéré global", f"{prix_ttc_moyen:.4f} €/kWh")
+
+                # ==========================================
+                # 2. HYPOTHÈSES ÉCONOMIQUES (CAPEX / OPEX / actualisation) — toujours fictives
+                # ==========================================
+                st.markdown("---")
                 st.subheader("Hypothèses économiques (valeurs fictives à ajuster)")
 
                 col_e1, col_e2, col_e3 = st.columns(3)
-                capex_unitaire = col_e1.number_input(
-                    "Coût unitaire de la batterie (€/kWh)", min_value=0.0, value=400.0, step=10.0,
-                    help="Coût fictif par défaut. À remplacer par le devis réel du fournisseur."
-                )
-                capex_fixe = col_e2.number_input(
-                    "Coûts fixes d'installation (€)", min_value=0.0, value=15000.0, step=500.0,
-                    help="Génie civil, raccordement, main d'œuvre... indépendant de la capacité choisie (valeur fictive)."
-                )
-                duree_vie_ans = int(col_e3.number_input(
-                    "Durée de vie / horizon d'étude (années)", min_value=1, max_value=30, value=15, step=1
-                ))
+                capex_unitaire = col_e1.number_input("Coût unitaire de la batterie (€/kWh)",
+                    min_value=0.0, value=400.0, step=10.0,
+                    help="Coût fictif par défaut. À remplacer par le devis réel du fournisseur.")
+                capex_fixe = col_e2.number_input("Coûts fixes d'installation (€)",
+                    min_value=0.0, value=15000.0, step=500.0,
+                    help="Génie civil, raccordement, main d'œuvre... (valeur fictive).")
+                duree_vie_ans = int(col_e3.number_input("Durée de vie / horizon d'étude (années)",
+                    min_value=1, max_value=30, value=15, step=1))
 
                 col_e4, col_e5, col_e6 = st.columns(3)
-                opex_pct = col_e4.number_input(
-                    "OPEX annuel (% du CAPEX)", min_value=0.0, max_value=20.0, value=1.5, step=0.1,
-                    help="Maintenance, assurance... exprimé en % du CAPEX total (valeur fictive)."
-                ) / 100.0
-                taux_actualisation = col_e5.number_input(
-                    "Taux d'actualisation (%)", min_value=0.0, max_value=20.0, value=4.0, step=0.1
-                ) / 100.0
-                degradation_pct = col_e6.number_input(
-                    "Dégradation annuelle de la batterie (%)", min_value=0.0, max_value=10.0, value=2.0, step=0.1,
-                    help="Perte de capacité utile par an (vieillissement). Mettre 0 pour l'ignorer."
-                ) / 100.0
+                opex_pct = col_e4.number_input("OPEX annuel (% du CAPEX)",
+                    min_value=0.0, max_value=20.0, value=1.5, step=0.1,
+                    help="Maintenance, assurance... (valeur fictive).") / 100.0
+                taux_actualisation = col_e5.number_input("Taux d'actualisation (%)",
+                    min_value=0.0, max_value=20.0, value=4.0, step=0.1) / 100.0
+                degradation_pct = col_e6.number_input("Dégradation annuelle de la batterie (%)",
+                    min_value=0.0, max_value=10.0, value=2.0, step=0.1,
+                    help="Perte de capacité utile par an. Mettre 0 pour l'ignorer.") / 100.0
 
-                col_e7, col_e8 = st.columns(2)
-                prix_achat_evite = col_e7.number_input(
-                    "Prix d'achat évité (€/kWh, tout compris : fourniture + TURPE + accise + TVA)",
-                    min_value=0.0, value=0.25, step=0.01, format="%.3f",
-                    help="Valeur fictive. À remplacer par le tarif réel du contrat de fourniture du TE13."
-                )
-                prix_vente_reseau = col_e8.number_input(
-                    "Prix de vente au réseau du surplus (€/kWh)",
+                prix_vente_reseau = st.number_input("Prix de vente au réseau du surplus (€/kWh)",
                     min_value=0.0, value=0.10, step=0.01, format="%.3f",
-                    help="Valeur fictive. Tarif de rachat du surplus injecté au réseau."
-                )
+                    help="Valeur fictive. Tarif de rachat du surplus injecté au réseau — pas encore fourni par le BPU.")
 
-                if prix_vente_reseau >= prix_achat_evite:
+                if prix_vente_reseau >= prix_ttc_moyen:
                     st.warning("Le prix de vente au réseau est supérieur ou égal au prix d'achat évité : "
                                "dans ce cas, stocker l'énergie n'a aucun intérêt économique par rapport à la "
-                               "revendre directement. Vérifiez ces deux valeurs.")
+                               "revendre directement.")
 
-                st.caption(
-                    "💡 La valeur économique captée par kWh de gain net n'est pas le prix d'achat évité seul, "
-                    "mais l'écart entre le prix d'achat évité et le prix de vente au réseau : sans batterie, "
-                    "ce kWh aurait de toute façon été vendu (à un prix plus faible) plutôt que perdu."
-                )
-
+                # ==========================================
+                # 3. VAN / TRI / LCOS PAR CAPACITÉ TESTÉE (utilise le prix BPU réel)
+                # ==========================================
                 resultats_eco = []
                 for _, row in df_res_t4.iterrows():
                     cap = row["Capacité (kWh)"]
                     gain_net_kwh = row["Gain Énergétique (kWh)"]
                     capex = capex_unitaire * cap + capex_fixe
                     opex_annuel = capex * opex_pct
-
                     indic = calculer_flux_et_indicateurs(
-                        gain_net_kwh, capex, opex_annuel, prix_achat_evite, prix_vente_reseau,
+                        gain_net_kwh, capex, opex_annuel, prix_ttc_moyen, prix_vente_reseau,
                         taux_actualisation, duree_vie_ans, degradation_pct
                     )
                     resultats_eco.append({
@@ -867,7 +994,6 @@ if fichier_conso is not None and fichier_prod is not None:
                         "VAN (€)": indic["van"], "TRI (%)": indic["tri"], "LCOS (€/kWh)": indic["lcos"],
                         "Payback (années)": indic["payback"], "Ratio B/C": indic["ratio_bc"],
                     })
-
                 df_eco = pd.DataFrame(resultats_eco)
 
                 idx_optimal = df_eco["VAN (€)"].idxmax()
@@ -899,52 +1025,46 @@ if fichier_conso is not None and fichier_prod is not None:
                     "LCOS (€/kWh)": "{:.3f}", "Payback (années)": "{:.1f}", "Ratio B/C": "{:.2f}",
                 }))
 
+                # ==========================================
+                # 4. TABLEAU DÉTAILLÉ (format étude Enolab) POUR UNE CAPACITÉ DONNÉE
+                # ==========================================
                 st.markdown("---")
-                st.subheader("Détail du plan de trésorerie pour une capacité donnée")
+                st.subheader("Tableau de flux détaillé (format étude Enolab)")
 
-                capacites_disponibles = df_eco["Capacité (kWh)"].tolist()
-                cap_choisie = st.select_slider("Capacité à examiner en détail (kWh)",
-                    options=capacites_disponibles, value=float(cap_optimale))
+                capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
+                    min_value=0.0, max_value=300.0, value=250.0, step=5.0)
+                ligne_capacite = df_res_t4.iloc[(df_res_t4["Capacité (kWh)"] - capacite_etude).abs().argsort()[:1]].iloc[0]
+                gain_net_kwh_reel = ligne_capacite["Gain Énergétique (kWh)"]
 
-                ligne_choisie = df_res_t4[df_res_t4["Capacité (kWh)"] == cap_choisie].iloc[0]
-                capex_choisi = capex_unitaire * cap_choisie + capex_fixe
-                opex_choisi = capex_choisi * opex_pct
+                col_v1, col_v2, col_v3 = st.columns(3)
+                opex_an1_v2 = col_v1.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=4600.0, step=100.0)
+                taux_inflation_opex = col_v2.number_input("Inflation OPEX (%/an)", min_value=0.0, max_value=10.0,
+                    value=1.5, step=0.1) / 100.0
+                taux_inflation_energie = col_v3.number_input("Inflation prix électricité (%/an)", min_value=0.0,
+                    max_value=10.0, value=3.0, step=0.1) / 100.0
 
-                indic_detail = calculer_flux_et_indicateurs(
-                    ligne_choisie["Gain Énergétique (kWh)"], capex_choisi, opex_choisi,
-                    prix_achat_evite, prix_vente_reseau, taux_actualisation, duree_vie_ans, degradation_pct
+                col_v4, col_v5 = st.columns(2)
+                revenu_producteur_an1 = col_v4.number_input("Coût producteur année 1 (€)",
+                    min_value=0.0, value=0.0, step=10.0,
+                    help="Nature encore à définir (TURPE injection, GO/CEE sur le surplus...). "
+                         "Laissé à 0 par défaut tant que ce n'est pas clarifié.")
+                capex_v2 = col_v5.number_input("CAPEX total (€ HT)", min_value=0.0,
+                    value=capacite_etude * 1000.0, step=1000.0,
+                    help="Valeur fictive par défaut (1 000 €/kWh). À remplacer par le devis réel.")
+
+                df_enolab = calculer_tableau_enolab(
+                    capex=capex_v2, opex_an1=opex_an1_v2, taux_inflation_opex=taux_inflation_opex,
+                    gain_net_kwh_an1=gain_net_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen,
+                    taux_inflation_energie=taux_inflation_energie,
+                    revenu_producteur_an1=revenu_producteur_an1, taux_inflation_revenu_producteur=taux_inflation_opex,
+                    duree_vie_ans=20, degradation_pct_an=degradation_pct
                 )
 
-                col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns(5)
-                col_r1.metric("VAN", f"{indic_detail['van']:,.0f} €")
-                col_r2.metric("TRI", f"{indic_detail['tri']:.1f} %" if indic_detail['tri'] is not None else "N/A")
-                col_r3.metric("LCOS", f"{indic_detail['lcos']:.3f} €/kWh")
-                col_r4.metric("Payback", f"{indic_detail['payback']:.1f} ans" if indic_detail['payback'] is not None else "N/A")
-                col_r5.metric("Ratio B/C", f"{indic_detail['ratio_bc']:.2f}")
-
-                df_flux_detail = pd.DataFrame({
-                    "Année": indic_detail["annees"],
-                    "Énergie économisée (kWh)": indic_detail["energies"],
-                    "Recettes (€)": indic_detail["recettes"],
-                    "OPEX (€)": indic_detail["opex"],
-                    "Flux net (€)": indic_detail["flux"],
-                    "Flux cumulé (€)": np.cumsum(indic_detail["flux"]),
-                })
-
-                fig_flux = go.Figure()
-                fig_flux.add_trace(go.Bar(x=df_flux_detail["Année"], y=df_flux_detail["Flux net (€)"],
-                    name="Flux net annuel (€)", marker_color="rgba(46, 116, 181, 0.6)"))
-                fig_flux.add_trace(go.Scatter(x=df_flux_detail["Année"], y=df_flux_detail["Flux cumulé (€)"],
-                    name="Flux cumulé (€)", mode="lines+markers", line=dict(color="darkgreen", width=3)))
-                fig_flux.add_hline(y=0, line_dash="dot", line_color="red")
-                fig_flux.update_layout(title=f"Plan de trésorerie — capacité {cap_choisie:.0f} kWh",
-                    xaxis_title="Année", yaxis_title="€", hovermode="x unified")
-                st.plotly_chart(fig_flux, use_container_width=True)
-
-                st.dataframe(df_flux_detail.style.format({
-                    "Énergie économisée (kWh)": "{:,.0f}", "Recettes (€)": "{:,.0f}", "OPEX (€)": "{:,.0f}",
-                    "Flux net (€)": "{:,.0f}", "Flux cumulé (€)": "{:,.0f}",
-                }))       
+                st.dataframe(df_enolab.style.format({
+                    "CAPEX (€ HT)": "{:,.0f}", "OPEX (€ HT)": "{:,.0f}",
+                    "Economie ACI (€ TTC)": "{:,.0f}", "Revenu producteur (€)": "{:,.0f}",
+                    "Economie nette (€)": "{:,.0f}", "Flux cumulés (€)": "{:,.0f}",
+                }, na_rep=""))      
       
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
