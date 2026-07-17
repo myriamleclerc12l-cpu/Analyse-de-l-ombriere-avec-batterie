@@ -222,6 +222,65 @@ def trouver_capacite_ideale(df_res, type_methode, param):
         idx = int(np.argmax(taps >= seuil))
         return caps[idx]
 
+def calculer_flux_et_indicateurs(gain_net_kwh_an1, capex, opex_annuel, prix_achat_evite, prix_vente_reseau,
+                                   taux_actualisation, duree_vie_ans, degradation_pct_an=0.0):
+    """
+    Calcule le plan de trésorerie et les indicateurs financiers (VAN, TRI, LCOS, Payback, ratio B/C)
+    pour une capacité de batterie donnée.
+    """
+    marge_arbitrage = prix_achat_evite - prix_vente_reseau  # valeur nette captée par kWh de gain net
+
+    annees = np.arange(0, duree_vie_ans + 1)
+    recettes = np.zeros(duree_vie_ans + 1)
+    opex = np.zeros(duree_vie_ans + 1)
+    energies = np.zeros(duree_vie_ans + 1)
+
+    for annee in range(1, duree_vie_ans + 1):
+        facteur_degradation = (1 - degradation_pct_an) ** (annee - 1)
+        energies[annee] = gain_net_kwh_an1 * facteur_degradation
+        recettes[annee] = energies[annee] * marge_arbitrage
+        opex[annee] = opex_annuel
+
+    flux = recettes - opex
+    flux[0] = -capex
+
+    facteurs = 1 / (1 + taux_actualisation) ** annees
+    van = float(np.sum(flux * facteurs))
+
+    def van_pour_taux(r):
+        return np.sum(flux / (1 + r) ** annees)
+
+    tri = None
+    if van_pour_taux(-0.99) > 0 and van_pour_taux(10.0) < 0:
+        lo, hi = -0.99, 10.0
+        for _ in range(200):
+            mid = (lo + hi) / 2
+            if van_pour_taux(mid) > 0:
+                lo = mid
+            else:
+                hi = mid
+        tri = (lo + hi) / 2
+
+    couts_actualises = capex + float(np.sum(opex[1:] * facteurs[1:]))
+    energie_actualisee = float(np.sum(energies[1:] * facteurs[1:]))
+    lcos = couts_actualises / energie_actualisee if energie_actualisee > 0 else float("nan")
+
+    cumul = np.cumsum(flux)
+    payback = None
+    idx_positif = np.where(cumul >= 0)[0]
+    if len(idx_positif) > 0 and idx_positif[0] > 0:
+        i = idx_positif[0]
+        payback = float((i - 1) + (-cumul[i - 1] / flux[i])) if flux[i] != 0 else float(i)
+
+    recettes_actualisees = float(np.sum(recettes[1:] * facteurs[1:]))
+    ratio_bc = recettes_actualisees / couts_actualises if couts_actualises > 0 else float("nan")
+
+    return {
+        "van": van, "tri": tri * 100 if tri is not None else None, "lcos": lcos,
+        "payback": payback, "ratio_bc": ratio_bc,
+        "flux": flux, "annees": annees, "recettes": recettes, "opex": opex, "energies": energies,
+    }
+
 # ==========================================
 # 2. INTERFACE STREAMLIT
 # ==========================================
