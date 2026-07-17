@@ -1088,12 +1088,11 @@ if fichier_conso is not None and fichier_prod is not None:
                ligne_capacite = df_res_t4.iloc[(df_res_t4["Capacité (kWh)"] - capacite_etude).abs().argsort()[:1]].iloc[0]
                autoconso_totale_kwh_reel = ligne_capacite["Autoconso Totale (kWh)"]
 
-               col_v1, col_v2, col_v3 = st.columns(3)
-               opex_an1_v2 = col_v1.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=4600.0, step=100.0)
-               taux_inflation_opex = col_v2.number_input("Inflation OPEX (%/an)", min_value=0.0, max_value=10.0,
-                    value=1.5, step=0.1) / 100.0
-               taux_inflation_energie = col_v3.number_input("Inflation prix électricité (%/an)", min_value=0.0,
-                    max_value=10.0, value=3.0, step=0.1) / 100.0
+               opex_an1_v2 = st.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=4600.0, step=100.0,
+                   key="opex_an1_v2")
+               st.caption(f"Inflation OPEX et inflation du prix de l'électricité réutilisées depuis la "
+                          f"Partie 2 ci-dessus : {taux_inflation_opex*100:.1f} %/an et "
+                          f"{taux_inflation_energie*100:.1f} %/an.")
 
                col_v4, col_v5 = st.columns(2)
                revenu_producteur_an1 = col_v4.number_input("Coût producteur année 1 (€)",
