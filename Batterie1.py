@@ -878,13 +878,13 @@ if fichier_conso is not None and fichier_prod is not None:
         # ----------------------------------------------------
                         
         with tab5:
-            st.header("Analyse Économique (Business Plan)")
+            st.header("Analyse Économique ")
             st.markdown("""
             Cet onglet valorise financièrement le gain énergétique calculé dans l'onglet 4 (Analyse Annuelle),
             en utilisant les tarifs réels du BPU Octopus Energy 2026, pour déterminer la capacité de batterie
             économiquement optimale — pas seulement techniquement optimale.
 
-            ⚠️ **Le CAPEX, l'OPEX, le taux d'actualisation et le prix de vente au réseau restent fictifs**,
+             **Le CAPEX, l'OPEX, le taux d'actualisation et le prix de vente au réseau restent fictifs**,
             en attendant les données réelles. Les prix d'achat évités, eux, sont désormais calculés à partir
             du vrai BPU, pondérés par votre profil de consommation réel.
             """)
