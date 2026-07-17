@@ -1065,11 +1065,10 @@ if fichier_conso is not None and fichier_prod is not None:
 
                 df_enolab = calculer_tableau_enolab(
                     capex=capex_v2, opex_an1=opex_an1_v2, taux_inflation_opex=taux_inflation_opex,
-                    gain_net_kwh_an1==autoconso_totale_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen,
+                    gain_net_kwh_an1=autoconso_totale_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen,
                     taux_inflation_energie=taux_inflation_energie,
                     revenu_producteur_an1=revenu_producteur_an1, taux_inflation_revenu_producteur=taux_inflation_opex,
-                    duree_vie_ans=20, degradation_pct_an=degradation_pct
-                )
+                    duree_vie_ans=20, degradation_pct_an=degradation_pct)
 
                 def fmt_eur(x):
                     return "" if pd.isna(x) else f"{x:,.0f}"
