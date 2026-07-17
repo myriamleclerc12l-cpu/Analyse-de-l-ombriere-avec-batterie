@@ -317,13 +317,12 @@ if fichier_conso is not None and fichier_prod is not None:
     if df.empty:
         st.error("Aucune donnée trouvée pour les dates sélectionnées.")
     else:
-        # CREATION DES QUATRE ONGLETS
-        tab1, tab2, tab3, tab4 = st.tabs([
-    "Simulation Temporelle Courte Durée",
-    "Simulation Temporelle Longue Durée",
-    "Gain de la Batterie",
-    "Analyse Annuelle"
-    
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "Simulation Temporelle Courte Durée",
+            "Simulation Temporelle Longue Durée",
+            "Gain de la Batterie",
+            "Analyse Annuelle",
+            "Analyse Économique"
         ])
         
         # ----------------------------------------------------
@@ -778,6 +777,174 @@ if fichier_conso is not None and fichier_prod is not None:
                         col_res4.metric("TAC estimé", f"{ligne_ideale['TAC (%)']:.1f} %")
                     else:
                         st.warning("Veuillez cocher au moins une hypothèse technique ci-dessus.")
+  
+        # ----------------------------------------------------
+        # ONGLET 5 : Analyse Budgétaire
+        # ----------------------------------------------------
+                        
+        with tab5:
+            st.header("Analyse Économique (Business Plan)")
+            st.markdown("""
+            Cet onglet valorise financièrement le gain énergétique calculé dans l'onglet 4 (Analyse Annuelle),
+            pour déterminer la capacité de batterie économiquement optimale — pas seulement techniquement
+            optimale.
+
+            ⚠️ **Les valeurs de coûts ci-dessous sont fictives**, en attendant les données réelles (coût de la
+            batterie, tarifs d'achat/de vente incluant TURPE et accise). Modifiez les curseurs pour tester
+            différentes hypothèses ; les indicateurs se recalculent automatiquement.
+            """)
+
+            if "df_resultats_t4" not in st.session_state:
+                st.warning("Merci de d'abord lancer l'analyse annuelle dans l'onglet 4 : cet onglet réutilise "
+                           "directement son résultat (gain énergétique par capacité testée).")
+            else:
+                df_res_t4 = st.session_state["df_resultats_t4"]
+
+                st.subheader("Hypothèses économiques (valeurs fictives à ajuster)")
+
+                col_e1, col_e2, col_e3 = st.columns(3)
+                capex_unitaire = col_e1.number_input(
+                    "Coût unitaire de la batterie (€/kWh)", min_value=0.0, value=400.0, step=10.0,
+                    help="Coût fictif par défaut. À remplacer par le devis réel du fournisseur."
+                )
+                capex_fixe = col_e2.number_input(
+                    "Coûts fixes d'installation (€)", min_value=0.0, value=15000.0, step=500.0,
+                    help="Génie civil, raccordement, main d'œuvre... indépendant de la capacité choisie (valeur fictive)."
+                )
+                duree_vie_ans = int(col_e3.number_input(
+                    "Durée de vie / horizon d'étude (années)", min_value=1, max_value=30, value=15, step=1
+                ))
+
+                col_e4, col_e5, col_e6 = st.columns(3)
+                opex_pct = col_e4.number_input(
+                    "OPEX annuel (% du CAPEX)", min_value=0.0, max_value=20.0, value=1.5, step=0.1,
+                    help="Maintenance, assurance... exprimé en % du CAPEX total (valeur fictive)."
+                ) / 100.0
+                taux_actualisation = col_e5.number_input(
+                    "Taux d'actualisation (%)", min_value=0.0, max_value=20.0, value=4.0, step=0.1
+                ) / 100.0
+                degradation_pct = col_e6.number_input(
+                    "Dégradation annuelle de la batterie (%)", min_value=0.0, max_value=10.0, value=2.0, step=0.1,
+                    help="Perte de capacité utile par an (vieillissement). Mettre 0 pour l'ignorer."
+                ) / 100.0
+
+                col_e7, col_e8 = st.columns(2)
+                prix_achat_evite = col_e7.number_input(
+                    "Prix d'achat évité (€/kWh, tout compris : fourniture + TURPE + accise + TVA)",
+                    min_value=0.0, value=0.25, step=0.01, format="%.3f",
+                    help="Valeur fictive. À remplacer par le tarif réel du contrat de fourniture du TE13."
+                )
+                prix_vente_reseau = col_e8.number_input(
+                    "Prix de vente au réseau du surplus (€/kWh)",
+                    min_value=0.0, value=0.10, step=0.01, format="%.3f",
+                    help="Valeur fictive. Tarif de rachat du surplus injecté au réseau."
+                )
+
+                if prix_vente_reseau >= prix_achat_evite:
+                    st.warning("Le prix de vente au réseau est supérieur ou égal au prix d'achat évité : "
+                               "dans ce cas, stocker l'énergie n'a aucun intérêt économique par rapport à la "
+                               "revendre directement. Vérifiez ces deux valeurs.")
+
+                st.caption(
+                    "💡 La valeur économique captée par kWh de gain net n'est pas le prix d'achat évité seul, "
+                    "mais l'écart entre le prix d'achat évité et le prix de vente au réseau : sans batterie, "
+                    "ce kWh aurait de toute façon été vendu (à un prix plus faible) plutôt que perdu."
+                )
+
+                resultats_eco = []
+                for _, row in df_res_t4.iterrows():
+                    cap = row["Capacité (kWh)"]
+                    gain_net_kwh = row["Gain Énergétique (kWh)"]
+                    capex = capex_unitaire * cap + capex_fixe
+                    opex_annuel = capex * opex_pct
+
+                    indic = calculer_flux_et_indicateurs(
+                        gain_net_kwh, capex, opex_annuel, prix_achat_evite, prix_vente_reseau,
+                        taux_actualisation, duree_vie_ans, degradation_pct
+                    )
+                    resultats_eco.append({
+                        "Capacité (kWh)": cap, "CAPEX (€)": capex,
+                        "VAN (€)": indic["van"], "TRI (%)": indic["tri"], "LCOS (€/kWh)": indic["lcos"],
+                        "Payback (années)": indic["payback"], "Ratio B/C": indic["ratio_bc"],
+                    })
+
+                df_eco = pd.DataFrame(resultats_eco)
+
+                idx_optimal = df_eco["VAN (€)"].idxmax()
+                cap_optimale = df_eco.loc[idx_optimal, "Capacité (kWh)"]
+                van_optimale = df_eco.loc[idx_optimal, "VAN (€)"]
+
+                if van_optimale > 0:
+                    st.success(f"### Capacité économiquement optimale : {cap_optimale:.0f} kWh "
+                               f"(VAN maximale : {van_optimale:,.0f} €)")
+                else:
+                    st.error(f"### Aucune capacité testée n'est rentable avec ces hypothèses "
+                             f"(la VAN la moins mauvaise est de {van_optimale:,.0f} € à {cap_optimale:.0f} kWh)")
+
+                fig_eco = make_subplots(specs=[[{"secondary_y": True}]])
+                fig_eco.add_trace(go.Scatter(x=df_eco["Capacité (kWh)"], y=df_eco["VAN (€)"], mode="lines+markers",
+                    name="VAN (€)", fill="tozeroy", line=dict(color="green", width=3)), secondary_y=False)
+                fig_eco.add_trace(go.Scatter(x=df_eco["Capacité (kWh)"], y=df_eco["TRI (%)"], mode="lines",
+                    name="TRI (%)", line=dict(color="blue", width=2, dash="dash")), secondary_y=True)
+                fig_eco.add_hline(y=0, line_dash="dot", line_color="red", secondary_y=False)
+                fig_eco.update_layout(title="VAN et TRI en fonction de la capacité de la batterie",
+                    xaxis_title="Taille de la batterie simulée (kWh)", hovermode="x unified")
+                fig_eco.update_yaxes(title_text="VAN (€)", secondary_y=False)
+                fig_eco.update_yaxes(title_text="TRI (%)", secondary_y=True)
+                st.plotly_chart(fig_eco, use_container_width=True)
+
+                st.subheader("Tableau récapitulatif par capacité testée")
+                st.dataframe(df_eco.style.format({
+                    "CAPEX (€)": "{:,.0f}", "VAN (€)": "{:,.0f}", "TRI (%)": "{:.1f}",
+                    "LCOS (€/kWh)": "{:.3f}", "Payback (années)": "{:.1f}", "Ratio B/C": "{:.2f}",
+                }))
+
+                st.markdown("---")
+                st.subheader("Détail du plan de trésorerie pour une capacité donnée")
+
+                capacites_disponibles = df_eco["Capacité (kWh)"].tolist()
+                cap_choisie = st.select_slider("Capacité à examiner en détail (kWh)",
+                    options=capacites_disponibles, value=float(cap_optimale))
+
+                ligne_choisie = df_res_t4[df_res_t4["Capacité (kWh)"] == cap_choisie].iloc[0]
+                capex_choisi = capex_unitaire * cap_choisie + capex_fixe
+                opex_choisi = capex_choisi * opex_pct
+
+                indic_detail = calculer_flux_et_indicateurs(
+                    ligne_choisie["Gain Énergétique (kWh)"], capex_choisi, opex_choisi,
+                    prix_achat_evite, prix_vente_reseau, taux_actualisation, duree_vie_ans, degradation_pct
+                )
+
+                col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns(5)
+                col_r1.metric("VAN", f"{indic_detail['van']:,.0f} €")
+                col_r2.metric("TRI", f"{indic_detail['tri']:.1f} %" if indic_detail['tri'] is not None else "N/A")
+                col_r3.metric("LCOS", f"{indic_detail['lcos']:.3f} €/kWh")
+                col_r4.metric("Payback", f"{indic_detail['payback']:.1f} ans" if indic_detail['payback'] is not None else "N/A")
+                col_r5.metric("Ratio B/C", f"{indic_detail['ratio_bc']:.2f}")
+
+                df_flux_detail = pd.DataFrame({
+                    "Année": indic_detail["annees"],
+                    "Énergie économisée (kWh)": indic_detail["energies"],
+                    "Recettes (€)": indic_detail["recettes"],
+                    "OPEX (€)": indic_detail["opex"],
+                    "Flux net (€)": indic_detail["flux"],
+                    "Flux cumulé (€)": np.cumsum(indic_detail["flux"]),
+                })
+
+                fig_flux = go.Figure()
+                fig_flux.add_trace(go.Bar(x=df_flux_detail["Année"], y=df_flux_detail["Flux net (€)"],
+                    name="Flux net annuel (€)", marker_color="rgba(46, 116, 181, 0.6)"))
+                fig_flux.add_trace(go.Scatter(x=df_flux_detail["Année"], y=df_flux_detail["Flux cumulé (€)"],
+                    name="Flux cumulé (€)", mode="lines+markers", line=dict(color="darkgreen", width=3)))
+                fig_flux.add_hline(y=0, line_dash="dot", line_color="red")
+                fig_flux.update_layout(title=f"Plan de trésorerie — capacité {cap_choisie:.0f} kWh",
+                    xaxis_title="Année", yaxis_title="€", hovermode="x unified")
+                st.plotly_chart(fig_flux, use_container_width=True)
+
+                st.dataframe(df_flux_detail.style.format({
+                    "Énergie économisée (kWh)": "{:,.0f}", "Recettes (€)": "{:,.0f}", "OPEX (€)": "{:,.0f}",
+                    "Flux net (€)": "{:,.0f}", "Flux cumulé (€)": "{:,.0f}",
+                }))       
       
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
