@@ -258,6 +258,16 @@ TARIFS_BPU = {
 PRIX_GO = 1.49    # €/MWh — Garanties d'Origine
 PRIX_CEE = 11.23  # €/MWh — obligations d'économies d'énergie
 
+# ==========================================
+# TURPE (Acheminement) — valeurs FICTIVES par défaut, à remplacer par la grille CRE réelle du TE13
+# ==========================================
+TARIFS_TURPE = {
+    "HPSh": 21.30,  # €/MWh — Heures Pleines Saison Haute
+    "HCSh": 15.20,  # €/MWh — Heures Creuses Saison Haute
+    "HPSb": 69.10,  # €/MWh — Heures Pleines Saison Basse
+    "HCSb": 42.10,  # €/MWh — Heures Creuses Saison Basse
+}
+
 
 def classer_cadran(timestamp, structure_cadran):
     """
@@ -920,43 +930,46 @@ if fichier_conso is not None and fichier_prod is not None:
                # ==========================================
                st.subheader("Tarification réelle (BPU Octopus 2026 + TURPE + Taxes)")
 
+               SEGMENTS_DISPONIBLES = ["C5 - Bâtiments et équipements", "C4"]
+               STRUCTURE_CADRAN_FIXE = "4 cadrans saisonniers"
+
                col_t1, col_t2 = st.columns(2)
                with col_t1:
                    st.markdown("**Siège (Fourniture)**")
-                   segment_siege = st.selectbox("Segment tarifaire — Siège", list(TARIFS_BPU.keys()), key="segment_siege")
-                   cadran_siege = st.selectbox("Structure de comptage — Siège", TARIFS_BPU[segment_siege]["cadrans_disponibles"], key="cadran_siege")
+                   segment_siege = st.selectbox("Segment tarifaire — Siège", SEGMENTS_DISPONIBLES, key="segment_siege")
                with col_t2:
                    st.markdown("**Bornes de recharge (Fourniture)**")
-                   segment_bornes = st.selectbox("Segment tarifaire — Bornes", list(TARIFS_BPU.keys()), key="segment_bornes")
-                   cadran_bornes = st.selectbox("Structure de comptage — Bornes", TARIFS_BPU[segment_bornes]["cadrans_disponibles"], key="cadran_bornes")
+                   segment_bornes = st.selectbox("Segment tarifaire — Bornes", SEGMENTS_DISPONIBLES, key="segment_bornes")
 
-               st.markdown("#### Saisie du TURPE (Acheminement) en €/MWh")
-               st.info("Le TURPE s'ajoute au prix de fourniture. Saisissez les valeurs correspondant à votre contrat (ex: HPSH, HCSH...).")
-               
-               # Saisie dynamique des valeurs du TURPE selon le cadran choisi pour le siège
-               turpe_dict = {}
+               cadran_siege = STRUCTURE_CADRAN_FIXE
+               cadran_bornes = STRUCTURE_CADRAN_FIXE
+               st.caption("Structure de comptage fixée à 4 cadrans saisonniers (HPSh / HCSh / HPSb / HCSb) — "
+                          "seule structure utilisée en pratique sur ce site.")
+
+               st.markdown("#### TURPE (Acheminement) — valeurs informatives, non modifiables")
+               st.info("⚠️ Valeurs fictives par défaut, en attente de la grille CRE réelle applicable au TE13. "
+                       "Affichées ici pour information uniquement — pour les changer, modifiez directement "
+                       "le dictionnaire `TARIFS_TURPE` dans le code, pas ici.")
+
                col_turpe = st.columns(4)
-               
-               # On détermine la liste des cadrans possibles (ex: ["HPSh", "HCSh", "HPSb", "HCSb"])
-               cadrans_possibles = list(TARIFS_BPU[segment_siege]["fourniture"][cadran_siege].keys())
-               
-               for i, cadran in enumerate(cadrans_possibles):
-                   with col_turpe[i % 4]:
-                       turpe_dict[cadran] = st.number_input(f"TURPE {cadran} (€/MWh)", min_value=0.0, value=0.0, step=1.0)
+               for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
+                   col_turpe[i].metric(f"TURPE {cadran}", f"{TARIFS_TURPE[cadran]:.2f} €/MWh")
 
+               turpe_dict = TARIFS_TURPE
 
                col_t3, col_t4, col_t5 = st.columns(3)
                inclure_go = col_t3.checkbox("Inclure les Garanties d'Origine (GO)", value=True)
-               accise_eur_mwh = col_t4.number_input("Accise électricité (CSPE) en €/MWh", min_value=0.0, value=25.0, step=0.5)
+               accise_eur_kwh = col_t4.number_input("Accise électricité (€/kWh)", min_value=0.0, value=0.0250,
+                   step=0.001, format="%.4f", help="Valeur fictive, en attente du taux réel applicable au TE13.")
                taux_tva = col_t5.number_input("TVA (%)", min_value=0.0, max_value=25.0, value=20.0, step=0.1) / 100.0
+               accise_eur_mwh = accise_eur_kwh * 1000.0
 
                dt_actuel = (df.index[1] - df.index[0]).total_seconds() / 3600.0
                conso_siege_seule = df["conso_kW"] - df["conso_bornes_kW"] if "conso_bornes_kW" in df.columns else df["conso_kW"]
 
-               # Passage du dictionnaire TURPE à la fonction
                prix_ttc_siege, _ = prix_moyen_pondere_ttc(conso_siege_seule, dt_actuel, segment_siege, cadran_siege,
                    inclure_go, accise_eur_mwh, taux_tva, turpe_dict)
-               
+
                if "conso_bornes_kW" in df.columns and df["conso_bornes_kW"].sum() > 0:
                    prix_ttc_bornes, _ = prix_moyen_pondere_ttc(df["conso_bornes_kW"], dt_actuel, segment_bornes,
                        cadran_bornes, inclure_go, accise_eur_mwh, taux_tva, turpe_dict)
