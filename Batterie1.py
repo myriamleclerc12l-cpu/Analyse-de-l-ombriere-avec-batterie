@@ -975,7 +975,7 @@ if fichier_conso is not None and fichier_prod is not None:
                                "dans ce cas, stocker l'énergie n'a aucun intérêt économique par rapport à la "
                                "revendre directement.")
 
-                # ==========================================
+               # ==========================================
                 # 3. VAN / TRI / LCOS PAR CAPACITÉ TESTÉE (utilise le prix BPU réel)
                 # ==========================================
                 resultats_eco = []
@@ -994,18 +994,15 @@ if fichier_conso is not None and fichier_prod is not None:
                         "Payback (années)": indic["payback"], "Ratio B/C": indic["ratio_bc"],
                     })
                 df_eco = pd.DataFrame(resultats_eco)
-
                 idx_optimal = df_eco["VAN (€)"].idxmax()
                 cap_optimale = df_eco.loc[idx_optimal, "Capacité (kWh)"]
                 van_optimale = df_eco.loc[idx_optimal, "VAN (€)"]
-
                 if van_optimale > 0:
                     st.success(f"### Capacité économiquement optimale : {cap_optimale:.0f} kWh "
                                f"(VAN maximale : {van_optimale:,.0f} €)")
                 else:
                     st.error(f"### Aucune capacité testée n'est rentable avec ces hypothèses "
                              f"(la VAN la moins mauvaise est de {van_optimale:,.0f} € à {cap_optimale:.0f} kWh)")
-
                 fig_eco = make_subplots(specs=[[{"secondary_y": True}]])
                 fig_eco.add_trace(go.Scatter(x=df_eco["Capacité (kWh)"], y=df_eco["VAN (€)"], mode="lines+markers",
                     name="VAN (€)", fill="tozeroy", line=dict(color="green", width=3)), secondary_y=False)
@@ -1019,11 +1016,23 @@ if fichier_conso is not None and fichier_prod is not None:
                 st.plotly_chart(fig_eco, use_container_width=True)
 
                 st.subheader("Tableau récapitulatif par capacité testée")
-                st.dataframe(df_eco.style.format({
-                    "CAPEX (€)": "{:,.0f}", "VAN (€)": "{:,.0f}", "TRI (%)": "{:.1f}",
-                    "LCOS (€/kWh)": "{:.3f}", "Payback (années)": "{:.1f}", "Ratio B/C": "{:.2f}",
-                }))
 
+                def fmt_eur0(x):
+                    return "" if pd.isna(x) else f"{x:,.0f}"
+
+                def fmt_num1(x):
+                    return "" if pd.isna(x) else f"{x:.1f}"
+
+                def fmt_num2(x):
+                    return "" if pd.isna(x) else f"{x:.2f}"
+
+                def fmt_num3(x):
+                    return "" if pd.isna(x) else f"{x:.3f}"
+
+                st.dataframe(df_eco.style.format({
+                    "CAPEX (€)": fmt_eur0, "VAN (€)": fmt_eur0, "TRI (%)": fmt_num1,
+                    "LCOS (€/kWh)": fmt_num3, "Payback (années)": fmt_num1, "Ratio B/C": fmt_num2,
+                }))
                 # ==========================================
                 # 4. TABLEAU DÉTAILLÉ (format étude Enolab) POUR UNE CAPACITÉ DONNÉE
                 # ==========================================
