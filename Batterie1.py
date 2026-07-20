@@ -978,29 +978,33 @@ if fichier_conso is not None and fichier_prod is not None:
 
                st.markdown("##### 1. Fourniture — BPU Octopus Energy 2026")
                SEGMENTS_DISPONIBLES = ["C5 - Bâtiments et équipements", "C4"]
-               STRUCTURE_CADRAN_FIXE = "4 cadrans saisonniers"
 
                col_t1, col_t2 = st.columns(2)
                with col_t1:
                    st.markdown("**Siège**")
                    segment_siege = st.selectbox("Segment tarifaire — Siège", SEGMENTS_DISPONIBLES, key="segment_siege")
+                   cadran_siege = st.selectbox("Structure de comptage — Siège",
+                       TARIFS_BPU[segment_siege]["cadrans_disponibles"], key="cadran_siege")
                with col_t2:
                    st.markdown("**Bornes de recharge**")
                    segment_bornes = st.selectbox("Segment tarifaire — Bornes", SEGMENTS_DISPONIBLES, key="segment_bornes")
-
-               cadran_siege = STRUCTURE_CADRAN_FIXE
-               cadran_bornes = STRUCTURE_CADRAN_FIXE
-               st.caption("Structure de comptage fixée à 4 cadrans saisonniers (HPSh / HCSh / HPSb / HCSb).")
+                   cadran_bornes = st.selectbox("Structure de comptage — Bornes",
+                       TARIFS_BPU[segment_bornes]["cadrans_disponibles"], key="cadran_bornes")
 
                st.markdown("##### 2. Acheminement — TURPE (informatif, non modifiable)")
+
                col_turpe = st.columns(4)
                for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
                    col_turpe[i].metric(f"TURPE {cadran}", f"{TARIFS_TURPE[cadran]:.2f} €/MWh")
                turpe_dict = TARIFS_TURPE
 
-               st.markdown("##### 3. Taxes et TVA")
-               col_t3, col_t4, col_t5 = st.columns(3)
-               inclure_go = col_t3.checkbox("Inclure les Garanties d'Origine (GO)", value=True)
+               st.markdown("##### 3. Autres composantes du BPU (non modifiables)")
+               col_fix1, col_fix2 = st.columns(2)
+               col_fix1.metric("Garanties d'Origine (GO)", f"{PRIX_GO:.2f} €/MWh", help="Toujours incluses, tarif fixé par le BPU.")
+               col_fix2.metric("Obligations CEE", f"{PRIX_CEE:.2f} €/MWh", help="Toujours incluses, tarif fixé par le BPU.")
+
+               st.markdown("##### 4. Taxes et TVA")
+               col_t4, col_t5 = st.columns(2)
                accise_eur_kwh = col_t4.number_input("Accise électricité (€/kWh)", min_value=0.0, value=0.0250,
                    step=0.001, format="%.4f", help="Valeur fictive, en attente du taux réel applicable au TE13.")
                taux_tva = col_t5.number_input("TVA (%)", min_value=0.0, max_value=25.0, value=20.0, step=0.1) / 100.0
@@ -1010,10 +1014,10 @@ if fichier_conso is not None and fichier_prod is not None:
                conso_siege_seule = df["conso_kW"] - df["conso_bornes_kW"] if "conso_bornes_kW" in df.columns else df["conso_kW"]
 
                prix_ttc_siege, _ = prix_moyen_pondere_ttc(conso_siege_seule, dt_actuel, segment_siege, cadran_siege,
-                   inclure_go, accise_eur_mwh, taux_tva, turpe_dict)
+                   True, accise_eur_mwh, taux_tva, turpe_dict)
                if "conso_bornes_kW" in df.columns and df["conso_bornes_kW"].sum() > 0:
                    prix_ttc_bornes, _ = prix_moyen_pondere_ttc(df["conso_bornes_kW"], dt_actuel, segment_bornes,
-                       cadran_bornes, inclure_go, accise_eur_mwh, taux_tva, turpe_dict)
+                       cadran_bornes, True, accise_eur_mwh, taux_tva, turpe_dict)
                else:
                    prix_ttc_bornes = prix_ttc_siege
 
@@ -1028,7 +1032,12 @@ if fichier_conso is not None and fichier_prod is not None:
                col_p1.metric("Prix moyen TTC — Siège", f"{prix_ttc_siege:.4f} €/kWh")
                col_p2.metric("Prix moyen TTC — Bornes", f"{prix_ttc_bornes:.4f} €/kWh")
                col_p3.metric("Prix moyen pondéré global (Évité)", f"{prix_ttc_moyen:.4f} €/kWh")
-
+               
+               st.subheader("Tarification réelle (BPU Octopus Energy 2026)")
+               st.caption("Le prix payé se décompose en 3 familles de coûts, additionnées ci-dessous pour "
+                          "obtenir le prix complet évité : la fourniture (facturée par Octopus, via le BPU), "
+                          "l'acheminement (TURPE, facturé par Enedis) et les taxes.")
+               
                # ==========================================
                # 2. HYPOTHÈSES ÉCONOMIQUES (CAPEX / OPEX / actualisation)
                # ==========================================
