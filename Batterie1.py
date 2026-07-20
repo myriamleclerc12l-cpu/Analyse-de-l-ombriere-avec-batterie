@@ -1003,7 +1003,7 @@ if fichier_conso is not None and fichier_prod is not None:
                
                col_turpe = st.columns(4)
                for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
-                   col_turpe[i].metric(f"TURPE {cadran}", f"{TARIFS_TURPE[cadran]:.4f} €/kWh")
+                   col_turpe[i].metric(f"TURPE {cadran}", f"{TARIFS_TURPE[cadran]:.5f} €/kWh")
                col_turpe = st.columns(4)
                turpe_dict = TARIFS_TURPE
 
