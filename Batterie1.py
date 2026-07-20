@@ -268,6 +268,7 @@ TARIFS_TURPE = {
     "HCSb": 0.04210,  # €/kWh — Heures Creuses Saison Basse
 }
 
+ACCISE_EUR_KWH = 0.03085  # €/kWh 
 
 def classer_cadran(timestamp, structure_cadran):
     """
@@ -1011,13 +1012,15 @@ if fichier_conso is not None and fichier_prod is not None:
                col_fix1, col_fix2 = st.columns(2)
                col_fix1.metric("Garanties d'Origine (GO)", f"{PRIX_GO:.2f} €/MWh", help="Toujours incluses, tarif fixé par le BPU.")
                col_fix2.metric("Obligations CEE", f"{PRIX_CEE:.2f} €/MWh", help="Toujours incluses, tarif fixé par le BPU.")
-
+               
                st.markdown("##### 4. Taxes et TVA")
                col_t4, col_t5 = st.columns(2)
-               accise_eur_kwh = col_t4.number_input("Accise électricité (€/kWh)", min_value=0.0, value=0.0250,
-                   step=0.001, format="%.4f", help="Valeur fictive, en attente du taux réel applicable au TE13.")
+               col_t4.metric("Accise électricité", f"{ACCISE_EUR_KWH:.4f} €/kWh",
+                   help="Valeur fictive, en attente du taux réel applicable au TE13. Non modifiable ici — "
+                        "pour la changer, ajustez la constante ACCISE_EUR_KWH dans le code.")
                taux_tva = col_t5.number_input("TVA (%)", min_value=0.0, max_value=25.0, value=20.0, step=0.1) / 100.0
-               accise_eur_mwh = accise_eur_kwh * 1000.0
+               accise_eur_mwh = ACCISE_EUR_KWH * 1000.0
+
 
                dt_actuel = (df.index[1] - df.index[0]).total_seconds() / 3600.0
                conso_siege_seule = df["conso_kW"] - df["conso_bornes_kW"] if "conso_bornes_kW" in df.columns else df["conso_kW"]
