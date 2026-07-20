@@ -409,6 +409,14 @@ def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_a
         })
     return pd.DataFrame(lignes)
 
+def carte_indicateur(titre, valeur, couleur_fond, couleur_accent):
+    return f"""
+    <div style="background-color:{couleur_fond}; border-left: 6px solid {couleur_accent};
+                border-radius: 8px; padding: 16px 20px; margin-bottom: 8px;">
+        <div style="font-size: 14px; color: #444; font-weight: 500;">{titre}</div>
+        <div style="font-size: 28px; color: {couleur_accent}; font-weight: 700; margin-top: 4px;">{valeur}</div>
+    </div>
+    """
 # ==========================================
 # TARIFS BPU OCTOPUS ENERGY — Année 2026
 # ==========================================
@@ -1084,10 +1092,10 @@ if fichier_conso is not None and fichier_prod is not None:
 
                 1. **Tarification** — calcule le prix réel de l'électricité évitée (€/kWh), à partir du BPU Octopus, du TURPE et des taxes.
                 2. **Hypothèses** — les paramètres d'investissement (CAPEX, OPEX, taux d'actualisation, dégradation...), à ajuster.
-                3. **Comparaison des capacités** — VAN, TRI et LCOE pour chaque capacité testée, afin d'identifier la capacité économiquement optimale.
-                4. **Détail (Enolab)** — un plan de trésorerie année par année, pour une capacité choisie individuellement.
+                3. **Etude de la capacité** — VAN, TRI et LCOE pour chaque capacité testée, afin d'identifier la capacité économiquement optimale.
+                4. **Bilan économique** — un plan de trésorerie année par année, pour une capacité choisie individuellement.
 
-                ⚠️ Tant que les paramètres des onglets 1 et 2 ne reflètent pas des données réelles (CAPEX, taux...), les résultats des onglets 3 et 4 restent illustratifs — pas une conclusion définitive.
+                
                 """)
 
                 st.markdown("---")
@@ -1352,10 +1360,16 @@ if fichier_conso is not None and fichier_prod is not None:
                         payback_v2 = float((i - 1) + (-cumul_v2[i - 1] / flux_annuels[i])) if flux_annuels[i] != 0 else float(i)
 
                     st.markdown("##### Indicateurs de synthèse pour cette capacité")
-                    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-                    col_s1.metric("TRI", f"{tri_v2*100:.1f} %" if tri_v2 is not None else "N/A")
-                    col_s2.metric("LCOE (LCOS)", f"{lcos_v2*100:.2f} c€/kWh" if not np.isnan(lcos_v2) else "N/A")
-                    col_s3.metric("Temps de retour", f"{payback_v2:.1f} ans" if payback_v2 is not None else "N/A")
-                    col_s4.metric("Valorisation interne", f"{prix_ttc_moyen*100:.2f} c€/kWh")
+                    col_res1, col_res2, col_res3, col_res4 = st.columns(4)
+                    col_res1.metric("Capacité retenue", f"{cap_ideale_finale:.0f} kWh")
+                    with col_res2:
+                            st.markdown(carte_indicateur("Gain net annuel", f"{ligne_ideale['Gain Énergétique (kWh)']:.0f} kWh",
+                                "#E8F5E9", "#2E7D32"), unsafe_allow_html=True)
+                    with col_res3:
+                            st.markdown(carte_indicateur("TAP estimé", f"{ligne_ideale['TAP (%)']:.1f} %",
+                                "#E3F2FD", "#1565C0"), unsafe_allow_html=True)
+                    with col_res4:
+                            st.markdown(carte_indicateur("TAC estimé", f"{ligne_ideale['TAC (%)']:.1f} %",
+                                "#FFF3E0", "#E65100"), unsafe_allow_html=True)
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
