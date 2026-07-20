@@ -979,20 +979,28 @@ if fichier_conso is not None and fichier_prod is not None:
                st.markdown("##### 1. Fourniture — BPU Octopus Energy 2026")
                SEGMENTS_DISPONIBLES = ["C5 - Bâtiments et équipements", "C4"]
 
+               def choisir_segment_et_cadran(nom_site, key_prefix):
+                   st.markdown(f"**{nom_site}**")
+                   segment = st.selectbox(f"Segment tarifaire — {nom_site}", SEGMENTS_DISPONIBLES, key=f"segment_{key_prefix}")
+                   options_cadran = TARIFS_BPU[segment]["cadrans_disponibles"]
+                   if len(options_cadran) > 1:
+                       # Le choix du cadran n'existe que pour C5, qui propose plusieurs structures
+                       cadran = st.selectbox(f"Structure de comptage — {nom_site}", options_cadran, key=f"cadran_{key_prefix}")
+                   else:
+                       # C4 n'offre qu'une seule structure dans le BPU : pas de choix à afficher
+                       cadran = options_cadran[0]
+                       st.caption(f"Structure de comptage : {cadran} (seule option disponible pour {segment}).")
+                   return segment, cadran
+
                col_t1, col_t2 = st.columns(2)
                with col_t1:
-                   st.markdown("**Siège**")
-                   segment_siege = st.selectbox("Segment tarifaire — Siège", SEGMENTS_DISPONIBLES, key="segment_siege")
-                   cadran_siege = st.selectbox("Structure de comptage — Siège",
-                       TARIFS_BPU[segment_siege]["cadrans_disponibles"], key="cadran_siege")
+                   segment_siege, cadran_siege = choisir_segment_et_cadran("Siège", "siege")
                with col_t2:
-                   st.markdown("**Bornes de recharge**")
-                   segment_bornes = st.selectbox("Segment tarifaire — Bornes", SEGMENTS_DISPONIBLES, key="segment_bornes")
-                   cadran_bornes = st.selectbox("Structure de comptage — Bornes",
-                       TARIFS_BPU[segment_bornes]["cadrans_disponibles"], key="cadran_bornes")
+                   segment_bornes, cadran_bornes = choisir_segment_et_cadran("Bornes de recharge", "bornes")
 
                st.markdown("##### 2. Acheminement — TURPE (informatif, non modifiable)")
-
+               st.info("⚠️ Valeurs fictives par défaut, en attente de la grille CRE réelle du TE13. "
+                       "Pour les changer, modifiez le dictionnaire `TARIFS_TURPE` dans le code.")
                col_turpe = st.columns(4)
                for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
                    col_turpe[i].metric(f"TURPE {cadran}", f"{TARIFS_TURPE[cadran]:.2f} €/MWh")
@@ -1032,11 +1040,6 @@ if fichier_conso is not None and fichier_prod is not None:
                col_p1.metric("Prix moyen TTC — Siège", f"{prix_ttc_siege:.4f} €/kWh")
                col_p2.metric("Prix moyen TTC — Bornes", f"{prix_ttc_bornes:.4f} €/kWh")
                col_p3.metric("Prix moyen pondéré global (Évité)", f"{prix_ttc_moyen:.4f} €/kWh")
-               
-               st.subheader("Tarification réelle (BPU Octopus Energy 2026)")
-               st.caption("Le prix payé se décompose en 3 familles de coûts, additionnées ci-dessous pour "
-                          "obtenir le prix complet évité : la fourniture (facturée par Octopus, via le BPU), "
-                          "l'acheminement (TURPE, facturé par Enedis) et les taxes.")
                
                # ==========================================
                # 2. HYPOTHÈSES ÉCONOMIQUES (CAPEX / OPEX / actualisation)
