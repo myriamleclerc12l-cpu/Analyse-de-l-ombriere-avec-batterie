@@ -1070,10 +1070,7 @@ if fichier_conso is not None and fichier_prod is not None:
             st.header("Analyse Économique (Business Plan)")
             st.markdown("""
             Cet onglet valorise financièrement le gain énergétique de la batterie (calculé dans l'onglet 4)
-            pour déterminer si — et à quelle capacité — l'investissement est rentable. Il se lit en 4 étapes,
-            organisées en sous-onglets ci-dessous : la tarification réelle sert de base aux hypothèses
-            économiques, qui alimentent la comparaison entre capacités, elle-même détaillée pour une capacité
-            choisie.
+            pour déterminer si — et à quelle capacité — l'investissement est rentable.
             """)
 
             if "df_resultats_t4" not in st.session_state:
@@ -1082,85 +1079,16 @@ if fichier_conso is not None and fichier_prod is not None:
             else:
                 df_res_t4 = st.session_state["df_resultats_t4"]
 
-                # ==========================================================
-                # RÉSUMÉ EXÉCUTIF — recalculé à chaque interaction, à partir des
-                # valeurs actuellement définies dans les sous-onglets ci-dessous
-                # (valeurs par défaut tant qu'ils n'ont pas encore été ouverts/modifiés)
-                # ==========================================================
-                _segment_siege = st.session_state.get("segment_siege", "C5 - Bâtiments et équipements")
-                _opt_cadran_siege = TARIFS_BPU[_segment_siege]["cadrans_disponibles"]
-                _cadran_siege = (st.session_state.get("cadran_siege", _opt_cadran_siege[0])
-                                  if len(_opt_cadran_siege) > 1 else _opt_cadran_siege[0])
+                st.info("""
+                **Comment lire cet onglet :** il se déroule en 4 étapes, dans les sous-onglets ci-dessous.
 
-                _segment_bornes = st.session_state.get("segment_bornes", "C5 - Bâtiments et équipements")
-                _opt_cadran_bornes = TARIFS_BPU[_segment_bornes]["cadrans_disponibles"]
-                _cadran_bornes = (st.session_state.get("cadran_bornes", _opt_cadran_bornes[0])
-                                   if len(_opt_cadran_bornes) > 1 else _opt_cadran_bornes[0])
+                1. **Tarification** — calcule le prix réel de l'électricité évitée (€/kWh), à partir du BPU Octopus, du TURPE et des taxes.
+                2. **Hypothèses** — les paramètres d'investissement (CAPEX, OPEX, taux d'actualisation, dégradation...), à ajuster.
+                3. **Comparaison des capacités** — VAN, TRI et LCOE pour chaque capacité testée, afin d'identifier la capacité économiquement optimale.
+                4. **Détail (Enolab)** — un plan de trésorerie année par année, pour une capacité choisie individuellement.
 
-                _taux_tva = st.session_state.get("taux_tva_input", 20.0) / 100.0
-
-                _capex_unitaire = st.session_state.get("capex_unitaire_input", 400.0)
-                _capex_fixe = st.session_state.get("capex_fixe_input", 15000.0)
-                _duree_vie_ans = int(st.session_state.get("duree_vie_input", 15))
-                _opex_pct = st.session_state.get("opex_pct_input", 1.5) / 100.0
-                _taux_inflation_opex = st.session_state.get("taux_inflation_opex_input", 1.5) / 100.0
-                _degradation_pct = st.session_state.get("degradation_pct_input", 2.0) / 100.0
-                _taux_actualisation = st.session_state.get("taux_actualisation_input", 4.0) / 100.0
-                _taux_inflation_energie = st.session_state.get("taux_inflation_energie_input", 3.0) / 100.0
-                _prix_vente_reseau = st.session_state.get("prix_vente_reseau_input", 0.0)
-
-                _dt_actuel = (df.index[1] - df.index[0]).total_seconds() / 3600.0
-                _conso_siege_seule = df["conso_kW"] - df["conso_bornes_kW"] if "conso_bornes_kW" in df.columns else df["conso_kW"]
-
-                _prix_ttc_siege, _ = prix_moyen_pondere_ttc(_conso_siege_seule, _dt_actuel, _segment_siege, _cadran_siege,
-                    True, ACCISE_EUR_KWH * 1000.0, _taux_tva, TARIFS_TURPE)
-                if "conso_bornes_kW" in df.columns and df["conso_bornes_kW"].sum() > 0:
-                    _prix_ttc_bornes, _ = prix_moyen_pondere_ttc(df["conso_bornes_kW"], _dt_actuel, _segment_bornes,
-                        _cadran_bornes, True, ACCISE_EUR_KWH * 1000.0, _taux_tva, TARIFS_TURPE)
-                else:
-                    _prix_ttc_bornes = _prix_ttc_siege
-
-                _volume_siege = _conso_siege_seule.sum() * _dt_actuel
-                _volume_bornes = df["conso_bornes_kW"].sum() * _dt_actuel if "conso_bornes_kW" in df.columns else 0
-                _volume_total = _volume_siege + _volume_bornes
-                _prix_ttc_moyen = ((_prix_ttc_siege * _volume_siege + _prix_ttc_bornes * _volume_bornes) / _volume_total
-                                    if _volume_total > 0 else _prix_ttc_siege)
-
-                _resultats_resume = []
-                for _, row in df_res_t4.iterrows():
-                    cap = row["Capacité (kWh)"]
-                    gain_net_kwh = row["Gain Énergétique (kWh)"]
-                    capex = _capex_unitaire * cap + _capex_fixe
-                    opex_annuel_an1 = capex * _opex_pct
-                    indic = calculer_flux_et_indicateurs(
-                        gain_net_kwh, capex, opex_annuel_an1, _prix_ttc_moyen, _prix_vente_reseau,
-                        _taux_actualisation, _duree_vie_ans, _degradation_pct,
-                        _taux_inflation_energie, _taux_inflation_opex
-                    )
-                    _resultats_resume.append({
-                        "Capacité (kWh)": cap, "VAN (€)": indic["van"],
-                        "TRI (%)": indic["tri"], "Payback (années)": indic["payback"],
-                    })
-                _df_resume = pd.DataFrame(_resultats_resume)
-                _idx_opt = _df_resume["VAN (€)"].idxmax()
-                _cap_opt = _df_resume.loc[_idx_opt, "Capacité (kWh)"]
-                _van_opt = _df_resume.loc[_idx_opt, "VAN (€)"]
-                _tri_opt = _df_resume.loc[_idx_opt, "TRI (%)"]
-                _payback_opt = _df_resume.loc[_idx_opt, "Payback (années)"]
-
-                st.markdown("### 🔎 Résumé")
-                if _van_opt > 0:
-                    st.success(f"Capacité économiquement optimale : **{_cap_opt:.0f} kWh**")
-                else:
-                    st.error(f"Aucune capacité testée n'est rentable avec les hypothèses actuelles "
-                             f"(la moins mauvaise : {_cap_opt:.0f} kWh)")
-                col_r1, col_r2, col_r3, col_r4 = st.columns(4)
-                col_r1.metric("VAN", f"{_van_opt:,.0f} €")
-                col_r2.metric("TRI", f"{_tri_opt:.1f} %" if _tri_opt is not None else "N/A")
-                col_r3.metric("Payback", f"{_payback_opt:.1f} ans" if _payback_opt is not None else "N/A")
-                col_r4.metric("Prix évité moyen", f"{_prix_ttc_moyen * 100:.2f} c€/kWh")
-                st.caption("Calculé à partir des paramètres actuellement définis dans les sous-onglets "
-                           "ci-dessous. Modifiez-les : ce résumé se met à jour automatiquement.")
+                ⚠️ Tant que les paramètres des onglets 1 et 2 ne reflètent pas des données réelles (CAPEX, taux...), les résultats des onglets 3 et 4 restent illustratifs — pas une conclusion définitive.
+                """)
 
                 st.markdown("---")
 
@@ -1199,7 +1127,7 @@ if fichier_conso is not None and fichier_prod is not None:
                     with col_t2:
                         segment_bornes, cadran_bornes = choisir_segment_et_cadran("Bornes de recharge", "bornes")
 
-                    with st.expander("Détail Acheminement (TURPE) et composantes fixes du BPU — informatif, non modifiable"):
+                    with st.expander("Détail Acheminement (TURPE) et composantes fixes du BPU"):
                         col_turpe = st.columns(4)
                         for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
                             col_turpe[i].metric(f"TURPE {cadran}", f"{TARIFS_TURPE[cadran]:.5f} €/kWh")
@@ -1211,7 +1139,9 @@ if fichier_conso is not None and fichier_prod is not None:
 
                     st.markdown("##### Taxes")
                     col_t4, col_t5 = st.columns(2)
-                    col_t4.metric("Accise électricité", f"{ACCISE_EUR_KWH:.4f} €/kWh")
+                    col_t4.metric("Accise électricité", f"{ACCISE_EUR_KWH:.4f} €/kWh",
+                        help="Valeur fictive, en attente du taux réel applicable au TE13. Non modifiable ici — "
+                             "pour la changer, ajustez la constante ACCISE_EUR_KWH dans le code.")
                     taux_tva = col_t5.number_input("TVA (%)", min_value=0.0, max_value=25.0, value=20.0, step=0.1,
                         key="taux_tva_input") / 100.0
                     accise_eur_mwh = ACCISE_EUR_KWH * 1000.0
@@ -1302,6 +1232,16 @@ if fichier_conso is not None and fichier_prod is not None:
                     df_eco = pd.DataFrame(resultats_eco)
 
                     range_van, range_tri = calculer_ranges_alignes(df_eco["VAN (€)"].values, df_eco["TRI (%)"].values)
+
+                    idx_optimal = df_eco["VAN (€)"].idxmax()
+                    cap_optimale = df_eco.loc[idx_optimal, "Capacité (kWh)"]
+                    van_optimale = df_eco.loc[idx_optimal, "VAN (€)"]
+                    if van_optimale > 0:
+                        st.success(f"### Capacité économiquement optimale : {cap_optimale:.0f} kWh "
+                                   f"(VAN maximale : {van_optimale:,.0f} €)")
+                    else:
+                        st.error(f"### Aucune capacité testée n'est rentable avec ces hypothèses "
+                                 f"(la VAN la moins mauvaise est de {van_optimale:,.0f} € à {cap_optimale:.0f} kWh)")
 
                     fig_eco = make_subplots(specs=[[{"secondary_y": True}]])
                     fig_eco.add_trace(go.Scatter(x=df_eco["Capacité (kWh)"], y=df_eco["VAN (€)"], mode="lines+markers",
@@ -1417,7 +1357,5 @@ if fichier_conso is not None and fichier_prod is not None:
                     col_s2.metric("LCOE (LCOS)", f"{lcos_v2*100:.2f} c€/kWh" if not np.isnan(lcos_v2) else "N/A")
                     col_s3.metric("Temps de retour", f"{payback_v2:.1f} ans" if payback_v2 is not None else "N/A")
                     col_s4.metric("Valorisation interne", f"{prix_ttc_moyen*100:.2f} c€/kWh")
-
-           
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
