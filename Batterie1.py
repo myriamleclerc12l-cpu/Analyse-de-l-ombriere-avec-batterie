@@ -393,6 +393,7 @@ def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_a
                               duree_vie_ans, degradation_pct_an=0.0):
     lignes = [{
         "Année": "A0", "CAPEX (€ HT)": -capex, "OPEX (€ HT)": np.nan,
+        "Énergie autoconsommée (kWh)": np.nan,
         "Economie ACI (€ TTC)": np.nan, "Revenu producteur (€)": np.nan,
         "Economie nette (€)": -capex, "Flux cumulés (€)": -capex,
     }]
@@ -408,6 +409,7 @@ def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_a
         flux_cumule += economie_nette
         lignes.append({
             "Année": f"A{annee}", "CAPEX (€ HT)": np.nan, "OPEX (€ HT)": opex,
+            "Énergie autoconsommée (kWh)": gain_kwh,
             "Economie ACI (€ TTC)": economie_aci, "Revenu producteur (€)": revenu_producteur,
             "Economie nette (€)": economie_nette, "Flux cumulés (€)": flux_cumule,
         })
