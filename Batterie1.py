@@ -1134,14 +1134,24 @@ if fichier_conso is not None and fichier_prod is not None:
                         segment_siege, cadran_siege = choisir_segment_et_cadran("Siège", "siege")
                     with col_t2:
                         segment_bornes, cadran_bornes = choisir_segment_et_cadran("Bornes de recharge", "bornes")
-
+                        
                     with st.expander("Détail Acheminement (TURPE) et composantes fixes du BPU"):
+                        st.markdown("**TURPE (€/kWh)**")
                         col_turpe = st.columns(4)
                         for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
-                            col_turpe[i].metric(f"TURPE {cadran}", f"{TARIFS_TURPE[cadran]:.5f} €/kWh")
+                            with col_turpe[i]:
+                                st.markdown(carte_indicateur(cadran, f"{TARIFS_TURPE[cadran]:.5f}",
+                                    "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14), unsafe_allow_html=True)
+
+                        st.markdown("**Composantes fixes du BPU**")
                         col_fix1, col_fix2 = st.columns(2)
-                        col_fix1.metric("Garanties d'Origine (GO)", f"{PRIX_GO:.2f} €/MWh")
-                        col_fix2.metric("Obligations CEE", f"{PRIX_CEE:.2f} €/MWh")
+                        with col_fix1:
+                            st.markdown(carte_indicateur("Garanties d'Origine (GO)", f"{PRIX_GO:.2f} €/MWh",
+                                "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14), unsafe_allow_html=True)
+                        with col_fix2:
+                            st.markdown(carte_indicateur("Obligations CEE", f"{PRIX_CEE:.2f} €/MWh",
+                                "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14), unsafe_allow_html=True)
+
 
                     turpe_dict = TARIFS_TURPE
 
@@ -1369,7 +1379,7 @@ if fichier_conso is not None and fichier_prod is not None:
                         st.markdown(carte_indicateur("LCOE (LCOS)", f"{lcos_v2*100:.2f} c€/kWh" if not np.isnan(lcos_v2) else "N/A",
                             "#FFF3E0", "#E65100"), unsafe_allow_html=True)
                     with col_s3:
-                        st.markdown(carte_indicateur("Temps de retour", f"{payback_v2:.1f} ans" if payback_v2 is not None else "N/A",
+                        st.markdown(carte_indicateur("TRB (temps de retour Brut)", f"{payback_v2:.1f} ans" if payback_v2 is not None else "N/A",
                             "#F3E5F5", "#6A1B9A"), unsafe_allow_html=True)
                     with col_s4:
                         st.markdown(carte_indicateur("Valorisation interne", f"{prix_ttc_moyen*100:.2f} c€/kWh",
