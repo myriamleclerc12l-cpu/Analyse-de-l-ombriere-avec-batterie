@@ -262,10 +262,10 @@ PRIX_CEE = 11.23  # €/MWh — obligations d'économies d'énergie
 # TURPE (Acheminement) — valeurs FICTIVES par défaut, à remplacer par la grille CRE réelle du TE13
 # ==========================================
 TARIFS_TURPE = {
-    "HPSh": 21.30,  # €/MWh — Heures Pleines Saison Haute
-    "HCSh": 15.20,  # €/MWh — Heures Creuses Saison Haute
-    "HPSb": 69.10,  # €/MWh — Heures Pleines Saison Basse
-    "HCSb": 42.10,  # €/MWh — Heures Creuses Saison Basse
+    "HPSh": 0.02130,  # €/kWh — Heures Pleines Saison Haute
+    "HCSh": 0.01520,  # €/kWh — Heures Creuses Saison Haute
+    "HPSb": 0.06910,  # €/kWh — Heures Pleines Saison Basse
+    "HCSb": 0.04210,  # €/kWh — Heures Creuses Saison Basse
 }
 
 
@@ -354,7 +354,7 @@ def prix_moyen_pondere_ttc(series_puissance_kw, dt_heures, segment, structure_ca
         prix_fourniture = tarif_fourniture.get(cadran, 0) / 1000.0
         prix_capacite = tarif_capacite.get(cadran, 0) / 1000.0
         # Récupération du TURPE spécifique au cadran (saisi par l'utilisateur)
-        prix_turpe = turpe_dict.get(cadran, 0.0) / 1000.0 
+        prix_turpe = turpe_dict.get(cadran, 0.0)
         
         prix_go = (PRIX_GO / 1000.0) if inclure_go else 0.0
         prix_cee = PRIX_CEE / 1000.0
@@ -999,11 +999,12 @@ if fichier_conso is not None and fichier_prod is not None:
                    segment_bornes, cadran_bornes = choisir_segment_et_cadran("Bornes de recharge", "bornes")
 
                st.markdown("##### 2. Acheminement — TURPE (informatif, non modifiable)")
-               st.info("⚠️ Valeurs fictives par défaut, en attente de la grille CRE réelle du TE13. "
-                       "Pour les changer, modifiez le dictionnaire `TARIFS_TURPE` dans le code.")
+
+               
                col_turpe = st.columns(4)
                for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
-                   col_turpe[i].metric(f"TURPE {cadran}", f"{TARIFS_TURPE[cadran]:.2f} €/MWh")
+                   col_turpe[i].metric(f"TURPE {cadran}", f"{TARIFS_TURPE[cadran]:.4f} €/kWh")
+               col_turpe = st.columns(4)
                turpe_dict = TARIFS_TURPE
 
                st.markdown("##### 3. Autres composantes du BPU (non modifiables)")
