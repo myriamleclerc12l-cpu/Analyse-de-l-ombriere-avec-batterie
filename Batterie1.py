@@ -270,12 +270,15 @@ TARIFS_TURPE = {
 
 ACCISE_EUR_KWH = 0.03085  # €/kWh 
 
+
 def classer_cadran(timestamp, structure_cadran):
     """
      Calendrier HP/HC et saisons par DÉFAUT, à confirmer avec le contrat Enedis réel du TE13 :
        - Heures Creuses : 22h-6h  /  Heures Pleines : 6h-22h
        - Saison haute : novembre à mars  /  Saison basse : avril à octobre
-       - "Pointe" (C2) non définie précisément ici -> traitée comme HPSh/HPSb par défaut
+       - "Pointe" (C2) NON implémentée pour l'instant : les heures qui seraient en Pointe sont
+         comptées comme HPSh/HPSb à la place. Le tarif Pointe du BPU (le plus cher) n'est donc
+         jamais appliqué — à corriger dès que la plage horaire de Pointe sera définie.
     """
     heure = timestamp.hour
     mois = timestamp.month
@@ -291,7 +294,6 @@ def classer_cadran(timestamp, structure_cadran):
         else:
             return "HCSb" if est_hc else "HPSb"
     return "Base"
-
 
 def calculer_ranges_alignes(serie1, serie2, marge=0.1):
     """
@@ -978,7 +980,7 @@ if fichier_conso is not None and fichier_prod is not None:
                           "l'acheminement (TURPE, facturé par Enedis) et les taxes.")
 
                st.markdown("##### 1. Fourniture — BPU Octopus Energy 2026")
-               SEGMENTS_DISPONIBLES = ["C5 - Bâtiments et équipements", "C4"]
+               SEGMENTS_DISPONIBLES = ["C5 - Bâtiments et équipements", "C4", "C2"]
 
                def choisir_segment_et_cadran(nom_site, key_prefix):
                    st.markdown(f"**{nom_site}**")
