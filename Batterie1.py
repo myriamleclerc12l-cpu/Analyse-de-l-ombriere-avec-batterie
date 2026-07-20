@@ -1360,16 +1360,19 @@ if fichier_conso is not None and fichier_prod is not None:
                         payback_v2 = float((i - 1) + (-cumul_v2[i - 1] / flux_annuels[i])) if flux_annuels[i] != 0 else float(i)
 
                     st.markdown("##### Indicateurs de synthèse pour cette capacité")
-                    col_res1, col_res2, col_res3, col_res4 = st.columns(4)
-                    col_res1.metric("Capacité retenue", f"{cap_ideale_finale:.0f} kWh")
-                    with col_res2:
-                            st.markdown(carte_indicateur("Gain net annuel", f"{ligne_ideale['Gain Énergétique (kWh)']:.0f} kWh",
-                                "#E8F5E9", "#2E7D32"), unsafe_allow_html=True)
-                    with col_res3:
-                            st.markdown(carte_indicateur("TAP estimé", f"{ligne_ideale['TAP (%)']:.1f} %",
-                                "#E3F2FD", "#1565C0"), unsafe_allow_html=True)
-                    with col_res4:
-                            st.markdown(carte_indicateur("TAC estimé", f"{ligne_ideale['TAC (%)']:.1f} %",
-                                "#FFF3E0", "#E65100"), unsafe_allow_html=True)
+                    
+                    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+                    with col_s1:
+                        st.markdown(carte_indicateur("TRI", f"{tri_v2*100:.1f} %" if tri_v2 is not None else "N/A",
+                            "#E3F2FD", "#1565C0"), unsafe_allow_html=True)
+                    with col_s2:
+                        st.markdown(carte_indicateur("LCOE (LCOS)", f"{lcos_v2*100:.2f} c€/kWh" if not np.isnan(lcos_v2) else "N/A",
+                            "#FFF3E0", "#E65100"), unsafe_allow_html=True)
+                    with col_s3:
+                        st.markdown(carte_indicateur("Temps de retour", f"{payback_v2:.1f} ans" if payback_v2 is not None else "N/A",
+                            "#F3E5F5", "#6A1B9A"), unsafe_allow_html=True)
+                    with col_s4:
+                        st.markdown(carte_indicateur("Valorisation interne", f"{prix_ttc_moyen*100:.2f} c€/kWh",
+                            "#E8F5E9", "#2E7D32"), unsafe_allow_html=True)
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
