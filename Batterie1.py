@@ -292,6 +292,46 @@ def classer_cadran(timestamp, structure_cadran):
     return "Base"
 
 
+def calculer_ranges_alignes(serie1, serie2, marge=0.1):
+    """
+    Calcule des bornes [min, max] pour deux séries affichées sur deux axes Y
+    différents d'un même graphique, de façon à ce que leur valeur zéro soit
+    alignée à la même position verticale sur les deux axes.
+    """
+    def bornes_brutes(s):
+        s = np.asarray(s, dtype=float)
+        s = s[~np.isnan(s)]
+        if len(s) == 0:
+            return 0.0, 1.0
+        mn, mx = float(np.min(s)), float(np.max(s))
+        mn = min(mn, 0.0)
+        mx = max(mx, 0.0)
+        if mx == mn:
+            mx = mn + 1.0
+        return mn, mx
+
+    mn1, mx1 = bornes_brutes(serie1)
+    mn2, mx2 = bornes_brutes(serie2)
+
+    amp1 = mx1 - mn1
+    amp2 = mx2 - mn2
+    mx1 += amp1 * marge
+    mx2 += amp2 * marge
+    if mn1 < 0:
+        mn1 -= amp1 * marge
+    if mn2 < 0:
+        mn2 -= amp2 * marge
+
+    f1 = (-mn1 / (mx1 - mn1)) if mn1 < 0 else 0.0
+    f2 = (-mn2 / (mx2 - mn2)) if mn2 < 0 else 0.0
+    f = max(f1, f2)
+
+    if f > 0:
+        mn1 = -f / (1 - f) * mx1
+        mn2 = -f / (1 - f) * mx2
+
+    return [mn1, mx1], [mn2, mx2]
+
 def prix_moyen_pondere_ttc(series_puissance_kw, dt_heures, segment, structure_cadran,
                              inclure_go=True, accise_eur_mwh=25.0, taux_tva=0.20, turpe_dict=None):
     """
@@ -1048,6 +1088,11 @@ if fichier_conso is not None and fichier_prod is not None:
                else:
                     st.error(f"### Aucune capacité testée n'est rentable avec ces hypothèses "
                              f"(la VAN la moins mauvaise est de {van_optimale:,.0f} € à {cap_optimale:.0f} kWh)")
+                    
+               range_van, range_tri = calculer_ranges_alignes(
+                   df_eco["VAN (€)"].values, df_eco["TRI (%)"].values
+               )
+
                fig_eco = make_subplots(specs=[[{"secondary_y": True}]])
                fig_eco.add_trace(go.Scatter(x=df_eco["Capacité (kWh)"], y=df_eco["VAN (€)"], mode="lines+markers",
                     name="VAN (€)", fill="tozeroy", line=dict(color="green", width=3)), secondary_y=False)
@@ -1056,9 +1101,10 @@ if fichier_conso is not None and fichier_prod is not None:
                fig_eco.add_hline(y=0, line_dash="dot", line_color="red", secondary_y=False)
                fig_eco.update_layout(title="VAN et TRI en fonction de la capacité de la batterie",
                     xaxis_title="Taille de la batterie simulée (kWh)", hovermode="x unified")
-               fig_eco.update_yaxes(title_text="VAN (€)", secondary_y=False)
-               fig_eco.update_yaxes(title_text="TRI (%)", secondary_y=True)
+               fig_eco.update_yaxes(title_text="VAN (€)", range=range_van, secondary_y=False)
+               fig_eco.update_yaxes(title_text="TRI (%)", range=range_tri, secondary_y=True)
                st.plotly_chart(fig_eco, use_container_width=True)
+              
 
                st.subheader("Tableau récapitulatif par capacité testée")
 
