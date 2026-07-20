@@ -413,8 +413,8 @@ def carte_indicateur(titre, valeur, couleur_fond, couleur_accent):
     return f"""
     <div style="background-color:{couleur_fond}; border-left: 6px solid {couleur_accent};
                 border-radius: 8px; padding: 16px 20px; margin-bottom: 8px;">
-        <div style="font-size: 10px; color: #444; font-weight: 500;">{titre}</div>
-        <div style="font-size: 20px; color: {couleur_accent}; font-weight: 700; margin-top: 4px;">{valeur}</div>
+        <div style="font-size: 15px; color: #444; font-weight: 500;">{titre}</div>
+        <div style="font-size: 18px; color: {couleur_accent}; font-weight: 700; margin-top: 4px;">{valeur}</div>
     </div>
     """
 # ==========================================
