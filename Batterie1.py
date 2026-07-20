@@ -1081,7 +1081,7 @@ if fichier_conso is not None and fichier_prod is not None:
                 # 4. TABLEAU DÉTAILLÉ (format étude Enolab) POUR UNE CAPACITÉ DONNÉE
                 # ==========================================
                st.markdown("---")
-               st.subheader("Tableau de flux détaillé (format étude Enolab)")
+               st.subheader("Tableau de flux détaillé")
 
                capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
                     min_value=0.0, max_value=300.0, value=250.0, step=5.0)
@@ -1118,10 +1118,51 @@ if fichier_conso is not None and fichier_prod is not None:
                          return ""
                    return "background-color: #C6EFCE; color: #006100" if x >= 0 else "background-color: #FFC7CE; color: #9C0006"
 
+               
                st.dataframe(df_enolab.style.format({
                     "CAPEX (€ HT)": fmt_eur, "OPEX (€ HT)": fmt_eur,
+                    "Énergie autoconsommée (kWh)": fmt_eur,
                     "Economie ACI (€ TTC)": fmt_eur, "Revenu producteur (€)": fmt_eur,
                     "Economie nette (€)": fmt_eur, "Flux cumulés (€)": fmt_eur,
                }).map(couleur_flux, subset=["Flux cumulés (€)"]))
+
+               # --- Indicateurs de synthèse pour cette capacité : TRI, LCOE, Payback, Valorisation interne ---
+               flux_annuels = df_enolab["Economie nette (€)"].values.astype(float)
+               cumul_v2 = df_enolab["Flux cumulés (€)"].values.astype(float)
+               annees_v2 = np.arange(0, len(flux_annuels))
+
+               def van_pour_taux_v2(r):
+                   return np.sum(flux_annuels / (1 + r) ** annees_v2)
+
+               tri_v2 = None
+               if van_pour_taux_v2(-0.99) > 0 and van_pour_taux_v2(10.0) < 0:
+                   lo, hi = -0.99, 10.0
+                   for _ in range(200):
+                       mid = (lo + hi) / 2
+                       if van_pour_taux_v2(mid) > 0:
+                           lo = mid
+                       else:
+                           hi = mid
+                   tri_v2 = (lo + hi) / 2
+
+               opex_v2 = -df_enolab["OPEX (€ HT)"].fillna(0).values.astype(float)
+               energie_v2 = df_enolab["Énergie autoconsommée (kWh)"].fillna(0).values.astype(float)
+               facteurs_v2 = 1 / (1 + taux_actualisation) ** annees_v2
+               couts_actualises_v2 = capex_v2 + float(np.sum(opex_v2[1:] * facteurs_v2[1:]))
+               energie_actualisee_v2 = float(np.sum(energie_v2[1:] * facteurs_v2[1:]))
+               lcos_v2 = couts_actualises_v2 / energie_actualisee_v2 if energie_actualisee_v2 > 0 else float("nan")
+
+               payback_v2 = None
+               idx_positif_v2 = np.where(cumul_v2 >= 0)[0]
+               if len(idx_positif_v2) > 0 and idx_positif_v2[0] > 0:
+                   i = idx_positif_v2[0]
+                   payback_v2 = float((i - 1) + (-cumul_v2[i - 1] / flux_annuels[i])) if flux_annuels[i] != 0 else float(i)
+
+               st.markdown("##### Indicateurs de synthèse pour cette capacité")
+               col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+               col_s1.metric("TRI", f"{tri_v2*100:.1f} %" if tri_v2 is not None else "N/A")
+               col_s2.metric("LCOE (LCOS)", f"{lcos_v2*100:.2f} c€/kWh" if not np.isnan(lcos_v2) else "N/A")
+               col_s3.metric("Temps de retour", f"{payback_v2:.1f} ans" if payback_v2 is not None else "N/A")
+               col_s4.metric("Valorisation interne", f"{prix_ttc_moyen*100:.2f} c€/kWh")
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
