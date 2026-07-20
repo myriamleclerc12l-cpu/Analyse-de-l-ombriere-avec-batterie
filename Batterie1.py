@@ -409,12 +409,12 @@ def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_a
         })
     return pd.DataFrame(lignes)
 
-def carte_indicateur(titre, valeur, couleur_fond, couleur_accent):
+def carte_indicateur(titre, valeur, couleur_fond, couleur_accent, taille_titre=12, taille_valeur=20):
     return f"""
     <div style="background-color:{couleur_fond}; border-left: 6px solid {couleur_accent};
                 border-radius: 8px; padding: 16px 20px; margin-bottom: 8px;">
-        <div style="font-size: 15px; color: #444; font-weight: 500;">{titre}</div>
-        <div style="font-size: 18px; color: {couleur_accent}; font-weight: 700; margin-top: 4px;">{valeur}</div>
+        <div style="font-size: {taille_titre}px; color: #444; font-weight: 500;">{titre}</div>
+        <div style="font-size: {taille_valeur}px; color: {couleur_accent}; font-weight: 700; margin-top: 4px;">{valeur}</div>
     </div>
     """
 # ==========================================
