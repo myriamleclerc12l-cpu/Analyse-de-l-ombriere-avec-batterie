@@ -784,6 +784,48 @@ if fichier_conso is not None and fichier_prod is not None:
                 )
                 fig_comp_ld.update_xaxes(type="date")
                 st.plotly_chart(fig_comp_ld, use_container_width=True)
+                
+                st.markdown("---")
+            st.subheader("État de charge à une heure fixe, jour par jour sur l'année")
+
+            heure_selectionnee = st.time_input(
+                "Heure de la journée à observer",
+                value=pd.Timestamp("12:00").time(),
+                key="heure_soc_annuelle",
+                help="L'état de charge de la batterie sera extrait à cette heure précise, chaque jour de "
+                     "la période sélectionnée. Si l'heure choisie ne tombe pas exactement sur un pas de "
+                     "30 min des données, l'horodatage le plus proche est utilisé automatiquement."
+            )
+
+            minutes_cible = heure_selectionnee.hour * 60 + heure_selectionnee.minute
+            minutes_donnees = df_simu_ld.index.hour * 60 + df_simu_ld.index.minute
+            ecart_brut = np.abs(minutes_donnees - minutes_cible)
+            ecart_minutes = np.minimum(ecart_brut, 1440 - ecart_brut)  # gère le passage minuit
+
+            df_temp_heure = pd.DataFrame({
+                "date": df_simu_ld.index,
+                "jour": df_simu_ld.index.date,
+                "SoC_pourcent": df_simu_ld["SoC_pourcent"].values,
+                "ecart_minutes": ecart_minutes,
+            })
+            idx_plus_proche = df_temp_heure.groupby("jour")["ecart_minutes"].idxmin()
+            soc_heure_fixe = df_temp_heure.loc[idx_plus_proche].set_index("date")["SoC_pourcent"].sort_index()
+
+            fig_soc_heure = go.Figure()
+            fig_soc_heure.add_trace(go.Scatter(
+                x=soc_heure_fixe.index, y=soc_heure_fixe.values, mode="lines",
+                name=f"État de charge à {heure_selectionnee.strftime('%H:%M')}",
+                line=dict(color="purple", width=2),
+                fill="tozeroy", fillcolor="rgba(128, 0, 128, 0.1)"
+            ))
+            fig_soc_heure.update_layout(
+                title=f"État de charge de la batterie à {heure_selectionnee.strftime('%H:%M')}, jour par jour",
+                xaxis_title="Jour", yaxis_title="État de charge (%)",
+                hovermode="x unified"
+            )
+            fig_soc_heure.update_yaxes(range=[0, 105])
+            fig_soc_heure.update_xaxes(type="date")
+            st.plotly_chart(fig_soc_heure, use_container_width=True)
         # ----------------------------------------------------
         # ONGLET 3 : Isoler le Gain de la Batterie
         # ----------------------------------------------------
