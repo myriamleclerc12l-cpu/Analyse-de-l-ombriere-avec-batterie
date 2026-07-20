@@ -1016,29 +1016,28 @@ if fichier_conso is not None and fichier_prod is not None:
                # ==========================================
                # 3. VAN / TRI / LCOS PAR CAPACITÉ TESTÉE
                # ==========================================
+               
                resultats_eco = []
                for _, row in df_res_t4.iterrows():
                    cap = row["Capacité (kWh)"]
-                   autoconso_totale_kwh = row["Gain Énergétique (kWh)"] # On utilise bien le GAIN apporté par la batterie
-                   
+                   gain_net_kwh = row["Gain Énergétique (kWh)"]
+
                    capex = capex_unitaire * cap + capex_fixe
                    opex_annuel_an1 = capex * opex_pct
-                   
-                   # Appel de la fonction mise à jour avec l'inflation
+
                    indic = calculer_flux_et_indicateurs(
-                       autoconso_totale_kwh, capex, opex_annuel_an1, prix_ttc_moyen, prix_vente_reseau,
+                       gain_net_kwh, capex, opex_annuel_an1, prix_ttc_moyen, prix_vente_reseau,
                        taux_actualisation, duree_vie_ans, degradation_pct,
                        taux_inflation_energie, taux_inflation_opex
                    )
-              
+
                    resultats_eco.append({
                        "Capacité (kWh)": cap, "CAPEX (€)": capex,
                        "VAN (€)": indic["van"], "TRI (%)": indic["tri"], "LCOS (€/kWh)": indic["lcos"],
                        "Payback (années)": indic["payback"], "Ratio B/C": indic["ratio_bc"],
                    })
                df_eco = pd.DataFrame(resultats_eco)
-
-              
+             
                 
                idx_optimal = df_eco["VAN (€)"].idxmax()
                cap_optimale = df_eco.loc[idx_optimal, "Capacité (kWh)"]
@@ -1088,7 +1087,7 @@ if fichier_conso is not None and fichier_prod is not None:
                capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
                     min_value=0.0, max_value=300.0, value=250.0, step=5.0)
                ligne_capacite = df_res_t4.iloc[(df_res_t4["Capacité (kWh)"] - capacite_etude).abs().argsort()[:1]].iloc[0]
-               autoconso_totale_kwh_reel = ligne_capacite["Autoconso Totale (kWh)"]
+               gain_net_kwh_reel = ligne_capacite["Gain Énergétique (kWh)"]
 
                opex_an1_v2 = st.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=4600.0, step=100.0,
                    key="opex_an1_v2")
@@ -1107,11 +1106,12 @@ if fichier_conso is not None and fichier_prod is not None:
                 
 
                df_enolab = calculer_tableau_enolab(
-                    capex=capex_v2, opex_an1=opex_an1_v2, taux_inflation_opex=taux_inflation_opex,
-                    gain_net_kwh_an1=autoconso_totale_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen,
-                    taux_inflation_energie=taux_inflation_energie,
-                    revenu_producteur_an1=revenu_producteur_an1, taux_inflation_revenu_producteur=taux_inflation_opex,
-                    duree_vie_ans=20, degradation_pct_an=degradation_pct)
+                   capex=capex_v2, opex_an1=opex_an1_v2, taux_inflation_opex=taux_inflation_opex,
+                   gain_net_kwh_an1=gain_net_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen,
+                   taux_inflation_energie=taux_inflation_energie,
+                   revenu_producteur_an1=revenu_producteur_an1, taux_inflation_revenu_producteur=taux_inflation_opex,
+                   duree_vie_ans=20, degradation_pct_an=degradation_pct
+               )
 
                def fmt_eur(x):
                     return "" if pd.isna(x) else f"{x:,.0f}"
