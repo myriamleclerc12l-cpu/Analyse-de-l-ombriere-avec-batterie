@@ -514,7 +514,7 @@ if fichier_conso is not None and fichier_prod is not None:
        """  )
 
             col_bat1, col_bat2 = st.columns(2)
-            capacite_batterie = col_bat1.slider("Capacité (kWh)", min_value=0.0, max_value=300.0, value=50.0, step=1.0, help="Volume total d'énergie stockable.")
+            capacite_batterie = col_bat1.slider("Capacité (kWh)", min_value=0.0, max_value=500.0, value=50.0, step=1.0, help="Volume total d'énergie stockable.")
             soc_initial = col_bat2.slider("Charge initiale (%)", min_value=0, max_value=100, value=0, step=5, help="Niveau de la batterie au début de la période sélectionnée.")
 
             puissance_onduleur = capacite_batterie / 2.0
@@ -578,6 +578,38 @@ if fichier_conso is not None and fichier_prod is not None:
                      f"qui autoconsommerait naturellement {autoconso_sans_bat:.1f} kWh sur cette période."
             )
             
+            st.markdown("---")
+            st.subheader("Comparaison des courbes de charge")
+            col_cb1, col_cb2, col_cb3 = st.columns(3)
+            afficher_bornes_seules = col_cb1.checkbox("Charge Bornes", value=False, key="cb_bornes_t1")
+            afficher_siege_seul = col_cb2.checkbox("Charge Siège", value=False, key="cb_siege_t1")
+            afficher_total = col_cb3.checkbox("Siège + Bornes", value=True, key="cb_total_t1")
+
+            if not (afficher_bornes_seules or afficher_siege_seul or afficher_total):
+                st.info("Cochez au moins une case ci-dessus pour afficher une courbe.")
+            else:
+                fig_comp = go.Figure()
+                if afficher_bornes_seules and "conso_bornes_kW" in df_simu.columns:
+                    fig_comp.add_trace(go.Scatter(x=df.index, y=df_simu["conso_bornes_kW"], mode="lines",
+                        name="Charge Bornes (kW)", line=dict(color="#E63946", width=2)))
+                if afficher_siege_seul:
+                    conso_siege_seule_t1 = (df_simu["conso_kW"] - df_simu["conso_bornes_kW"]
+                                              if "conso_bornes_kW" in df_simu.columns else df_simu["conso_kW"])
+                    fig_comp.add_trace(go.Scatter(x=df.index, y=conso_siege_seule_t1, mode="lines",
+                        name="Charge Siège (kW)", line=dict(color="royalblue", width=2)))
+                if afficher_total:
+                    fig_comp.add_trace(go.Scatter(x=df.index, y=df_simu["conso_kW"], mode="lines",
+                        name="Siège + Bornes (kW)", line=dict(color="#2A9D8F", width=2)))
+
+                fig_comp.update_layout(
+                    title="Comparaison des courbes de charge",
+                    xaxis_title="Période temporelle", yaxis_title="Puissance (kW)",
+                    hovermode="x unified",
+                    legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
+                )
+                fig_comp.update_xaxes(type="date", tickformat="%H:%M\n%d/%m", hoverformat="%d/%m/%Y %H:%M")
+                st.plotly_chart(fig_comp, use_container_width=True)
+            
          # ----------------------------------------------------
          # ONGLET 2 : simulation temporelle longue durée
          # ----------------------------------------------------
@@ -601,7 +633,7 @@ if fichier_conso is not None and fichier_prod is not None:
 
             col_bat1_ld, col_bat2_ld = st.columns(2)
             capacite_batterie_ld = col_bat1_ld.slider(
-                "Capacité (kWh)", min_value=0.0, max_value=300.0, value=50.0, step=1.0,
+                "Capacité (kWh)", min_value=0.0, max_value=500.0, value=50.0, step=1.0,
                 key="cap_longue_duree", help="Volume total d'énergie stockable."
             )
             soc_initial_ld = col_bat2_ld.slider(
@@ -717,6 +749,41 @@ if fichier_conso is not None and fichier_prod is not None:
                 help=f"Gain net apporté par la batterie par rapport à une installation sans stockage, "
                      f"qui autoconsommerait naturellement {autoconso_sans_bat_ld:.1f} kWh sur cette période."
             )
+            st.markdown("---")
+            st.subheader("Comparaison des courbes de charge (pics quotidiens)")
+            col_cb1_ld, col_cb2_ld, col_cb3_ld = st.columns(3)
+            afficher_bornes_seules_ld = col_cb1_ld.checkbox("Charge Bornes", value=False, key="cb_bornes_t2")
+            afficher_siege_seul_ld = col_cb2_ld.checkbox("Charge Siège", value=False, key="cb_siege_t2")
+            afficher_total_ld = col_cb3_ld.checkbox("Siège + Bornes", value=True, key="cb_total_t2")
+
+            if not (afficher_bornes_seules_ld or afficher_siege_seul_ld or afficher_total_ld):
+                st.info("Cochez au moins une case ci-dessus pour afficher une courbe.")
+            else:
+                fig_comp_ld = go.Figure()
+                if afficher_bornes_seules_ld and "conso_bornes_kW" in df_simu_ld.columns:
+                    bornes_pic_j = df_simu_ld.groupby(jours)["conso_bornes_kW"].max()
+                    bornes_pic_j.index = pd.to_datetime(bornes_pic_j.index)
+                    fig_comp_ld.add_trace(go.Scatter(x=bornes_pic_j.index, y=bornes_pic_j.values, mode="lines",
+                        name="Pic Charge Bornes (kW/j)", line=dict(color="#E63946", width=2)))
+                if afficher_siege_seul_ld:
+                    conso_siege_seule_ld = (df_simu_ld["conso_kW"] - df_simu_ld["conso_bornes_kW"]
+                                              if "conso_bornes_kW" in df_simu_ld.columns else df_simu_ld["conso_kW"])
+                    siege_pic_j = conso_siege_seule_ld.groupby(jours).max()
+                    siege_pic_j.index = pd.to_datetime(siege_pic_j.index)
+                    fig_comp_ld.add_trace(go.Scatter(x=siege_pic_j.index, y=siege_pic_j.values, mode="lines",
+                        name="Pic Charge Siège (kW/j)", line=dict(color="royalblue", width=2)))
+                if afficher_total_ld:
+                    fig_comp_ld.add_trace(go.Scatter(x=conso_pic_j.index, y=conso_pic_j.values, mode="lines",
+                        name="Pic Siège + Bornes (kW/j)", line=dict(color="#2A9D8F", width=2)))
+
+                fig_comp_ld.update_layout(
+                    title="Comparaison des pics quotidiens de charge",
+                    xaxis_title="Jour", yaxis_title="Puissance (kW)",
+                    hovermode="x unified",
+                    legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
+                )
+                fig_comp_ld.update_xaxes(type="date")
+                st.plotly_chart(fig_comp_ld, use_container_width=True)
         # ----------------------------------------------------
         # ONGLET 3 : Isoler le Gain de la Batterie
         # ----------------------------------------------------
@@ -732,7 +799,7 @@ if fichier_conso is not None and fichier_prod is not None:
             Il représente donc les kWh de production solaire qui, sans la batterie, auraient été perdus (renvoyés au réseau) et qui sont désormais utilisés sur place.
             """)
             
-            max_cap_test = 300
+            max_cap_test = 500
             soc_init_test = st.number_input("Charge initiale au départ (%) :", value=0, min_value=0, max_value=100, key="num_soc_t2", help="Niveau de charge de la batterie au début de la période sélectionnée.")
 
             st.info("Règle appliquée : Pour chaque capacité testée, la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh).")
@@ -808,7 +875,7 @@ if fichier_conso is not None and fichier_prod is not None:
 
                 st.info(f"Année analysée : du {date_debut_annee.strftime('%d/%m/%Y')} au {date_fin_annee.strftime('%d/%m/%Y')} ({nb_jours_dispo} jours).")
 
-                max_cap_test_t4 = 300
+                max_cap_test_t4 = 500
                 soc_initial_janvier_t4 = 0
 
                 st.info("Règle appliquée : Pour chaque capacité testée, la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh).")
@@ -886,10 +953,10 @@ if fichier_conso is not None and fichier_prod is not None:
     "Coude géométrique de rentabilité":
         "Détecte automatiquement le point d'inflexion (le « coude ») de la courbe de gain : "
         "la capacité où l'écart entre la courbe et la droite reliant le premier et le dernier "
-        "point testés (0 et 300 kWh) est maximal. Méthode géométrique (Kneedle), sans seuil à choisir.",
+        "point testés (0 et 500 kWh) est maximal. Méthode géométrique (Kneedle), sans seuil à choisir.",
     "Atteindre le plateau à 90 % du gain net maximal":
         "Retient la plus petite capacité testée qui atteint déjà 90 % du gain énergétique "
-        "maximal observé sur toute la plage testée (0 à 300 kWh).",
+        "maximal observé sur toute la plage testée (0 à 500 kWh).",
     "Atteindre le plateau à 95 % du gain net maximal":
         "Même principe que l'option 90 %, avec un seuil plus exigeant : 95 % du gain "
         "énergétique maximal possible.",
@@ -1148,7 +1215,7 @@ if fichier_conso is not None and fichier_prod is not None:
                st.subheader("Tableau de flux détaillé")
 
                capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
-                    min_value=0.0, max_value=300.0, value=250.0, step=5.0)
+                    min_value=0.0, max_value=500.0, value=250.0, step=5.0)
                ligne_capacite = df_res_t4.iloc[(df_res_t4["Capacité (kWh)"] - capacite_etude).abs().argsort()[:1]].iloc[0]
                gain_net_kwh_reel = ligne_capacite["Gain Énergétique (kWh)"]
 
