@@ -1015,9 +1015,8 @@ if fichier_conso is not None and fichier_prod is not None:
                
                st.markdown("##### 4. Taxes et TVA")
                col_t4, col_t5 = st.columns(2)
-               col_t4.metric("Accise électricité", f"{ACCISE_EUR_KWH:.4f} €/kWh",
-                   help="Valeur fictive, en attente du taux réel applicable au TE13. Non modifiable ici — "
-                        "pour la changer, ajustez la constante ACCISE_EUR_KWH dans le code.")
+               col_t4.metric("Accise électricité", f"{ACCISE_EUR_KWH:.5f} €/kWh",
+                   help=".")
                taux_tva = col_t5.number_input("TVA (%)", min_value=0.0, max_value=25.0, value=20.0, step=0.1) / 100.0
                accise_eur_mwh = ACCISE_EUR_KWH * 1000.0
 
