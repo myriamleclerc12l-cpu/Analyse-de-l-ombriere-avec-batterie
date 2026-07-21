@@ -1083,10 +1083,18 @@ if fichier_conso is not None and fichier_prod is not None:
                         st.markdown("*Pour satisfaire simultanément tous vos critères, le système retient la valeur la plus exigeante parmi vos choix.*")
 
                         col_res1, col_res2, col_res3, col_res4 = st.columns(4)
-                        col_res1.metric("Capacité retenue", f"{cap_ideale_finale:.0f} kWh")
-                        col_res2.metric("Gain net annuel", f"{ligne_ideale['Gain Énergétique (kWh)']:.0f} kWh")
-                        col_res3.metric("TAP estimé", f"{ligne_ideale['TAP (%)']:.1f} %")
-                        col_res4.metric("TAC estimé", f"{ligne_ideale['TAC (%)']:.1f} %")
+                        with col_res1:
+                            st.markdown(carte_indicateur("Capacité retenue", f"{cap_ideale_finale:.0f} kWh",
+                                "#E3F2FD", "#0D47A1"), unsafe_allow_html=True)
+                        with col_res2:
+                            st.markdown(carte_indicateur("Gain net annuel", f"{ligne_ideale['Gain Énergétique (kWh)']:.0f} kWh",
+                                "#E8F5E9", "#2E7D32"), unsafe_allow_html=True)
+                        with col_res3:
+                            st.markdown(carte_indicateur("TAP estimé", f"{ligne_ideale['TAP (%)']:.1f} %",
+                                "#E3F2FD", "#1565C0"), unsafe_allow_html=True)
+                        with col_res4:
+                            st.markdown(carte_indicateur("TAC estimé", f"{ligne_ideale['TAC (%)']:.1f} %",
+                                "#FFF3E0", "#E65100"), unsafe_allow_html=True)
                     else:
                         st.warning("Veuillez cocher au moins une hypothèse technique ci-dessus.")
   
