@@ -1172,7 +1172,13 @@ if fichier_conso is not None and fichier_prod is not None:
         # ----------------------------------------------------
                         
         with tab5:
-            st.header("Analyse Économique")
+            st.header("Analyse Économique (Business Plan)", help=(
+                "**Comment lire cet onglet :** il se déroule en 4 étapes, dans les sous-onglets ci-dessous.\n\n"
+                "1. **Tarification** — calcule le prix réel de l'électricité évitée (€/kWh), à partir du BPU Octopus, du TURPE et des taxes.\n\n"
+                "2. **Hypothèses** — les paramètres d'investissement (CAPEX, OPEX, taux d'actualisation, dégradation...), à ajuster.\n\n"
+                "3. **Etude de la capacité** — VAN, TRI et LCOE pour chaque capacité testée, afin d'identifier la capacité économiquement optimale.\n\n"
+                "4. **Bilan économique** — un plan de trésorerie année par année, pour une capacité choisie individuellement."
+            ))
             st.markdown("""
             Cet onglet valorise financièrement le gain énergétique de la batterie (calculé dans l'onglet 4)
             pour déterminer si — et à quelle capacité — l'investissement est rentable.
@@ -1183,17 +1189,6 @@ if fichier_conso is not None and fichier_prod is not None:
                            "directement son résultat (gain énergétique par capacité testée).")
             else:
                 df_res_t4 = st.session_state["df_resultats_t4"]
-
-                st.info("""
-                **Comment lire cet onglet :** il se déroule en 4 étapes, dans les sous-onglets ci-dessous.
-
-                1. **Tarification** — calcule le prix réel de l'électricité évitée (€/kWh), à partir du BPU Octopus, du TURPE et des taxes.
-                2. **Hypothèses** — les paramètres d'investissement (CAPEX, OPEX, taux d'actualisation, dégradation...), à ajuster.
-                3. **Etude de la capacité** — VAN, TRI et LCOE pour chaque capacité testée, afin d'identifier la capacité économiquement optimale.
-                4. **Bilan économique** — un plan de trésorerie année par année, pour une capacité choisie individuellement.
-
-                
-                """)
 
                 st.markdown("---")
 
