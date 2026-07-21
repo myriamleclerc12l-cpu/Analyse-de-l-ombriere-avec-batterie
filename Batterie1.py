@@ -229,19 +229,31 @@ def trouver_capacite_ideale(df_res, type_methode, param):
         idx = int(np.argmax(tacs >= seuil))
         return caps[idx]
 
-def classer_cadran(timestamp, structure_cadran):
+def classer_cadran(timestamp, structure_cadran, mois_saison_haute=None, hc_debut_haute=22, hc_fin_haute=6,
+                    hc_debut_basse=22, hc_fin_basse=6):
     """
-     Calendrier HP/HC et saisons par DÉFAUT, à confirmer avec le contrat Enedis réel du TE13 :
-       - Heures Creuses : 22h-6h  /  Heures Pleines : 6h-22h
-       - Saison haute : novembre à mars  /  Saison basse : avril à octobre
-       - "Pointe" (C2) NON implémentée pour l'instant : les heures qui seraient en Pointe sont
-         comptées comme HPSh/HPSb à la place. Le tarif Pointe du BPU (le plus cher) n'est donc
-         jamais appliqué — à corriger dès que la plage horaire de Pointe sera définie.
+    Calendrier HP/HC et saisons — personnalisable via l'interface (sous-onglet Tarification).
+    Par défaut (si non précisé) : Heures Creuses 22h-6h les deux saisons, Saison Haute novembre à mars.
+    "Pointe" (C2) NON implémentée pour l'instant : les heures qui seraient en Pointe sont
+    comptées comme HPSh/HPSb à la place.
     """
+    if mois_saison_haute is None:
+        mois_saison_haute = (11, 12, 1, 2, 3)
+
     heure = timestamp.hour
     mois = timestamp.month
-    est_hc = (heure >= 22) or (heure < 6)
-    est_saison_haute = mois in (11, 12, 1, 2, 3)
+    est_saison_haute = mois in mois_saison_haute
+
+    if est_saison_haute:
+        hc_debut, hc_fin = hc_debut_haute, hc_fin_haute
+    else:
+        hc_debut, hc_fin = hc_debut_basse, hc_fin_basse
+
+    if hc_debut <= hc_fin:
+        est_hc = hc_debut <= heure < hc_fin
+    else:
+        est_hc = (heure >= hc_debut) or (heure < hc_fin)
+
     if structure_cadran == "Base (1 cadran)":
         return "Base"
     elif structure_cadran == "HP/HC (2 cadrans)":
@@ -294,56 +306,54 @@ def calculer_ranges_alignes(serie1, serie2, marge=0.1):
     return [mn1, mx1], [mn2, mx2]
 
 def prix_moyen_pondere_ttc(series_puissance_kw, dt_heures, segment, structure_cadran,
-                             inclure_go=True, accise_eur_mwh=25.0, taux_tva=0.20, turpe_dict=None):
+                             inclure_go=True, accise_eur_mwh=25.0, taux_tva=0.20, turpe_dict=None,
+                             mois_saison_haute=None, hc_debut_haute=22, hc_fin_haute=6,
+                             hc_debut_basse=22, hc_fin_basse=6):
     """
-    Prix moyen pondéré (€/kWh TTC) d'un profil de charge,
-    pondéré par l'énergie réelle par cadran, incluant le TURPE dynamique.
+    Prix moyen pondéré (€/kWh TTC) d'un profil de charge, pondéré par l'énergie réelle par cadran,
+    avec TURPE dynamique et calendrier HP/HC personnalisable.
     """
     if turpe_dict is None:
         turpe_dict = {"Base": 0.0, "HP": 0.0, "HC": 0.0, "HPSh": 0.0, "HCSh": 0.0, "HPSb": 0.0, "HCSb": 0.0, "Pte": 0.0}
 
     tarif_fourniture = TARIFS_BPU[segment]["fourniture"][structure_cadran]
     tarif_capacite = TARIFS_BPU[segment]["capacite"][structure_cadran]
-    cadrans = series_puissance_kw.index.map(lambda t: classer_cadran(t, structure_cadran))
-    
+    cadrans = series_puissance_kw.index.map(lambda t: classer_cadran(
+        t, structure_cadran, mois_saison_haute, hc_debut_haute, hc_fin_haute, hc_debut_basse, hc_fin_basse
+    ))
+
     energie_kwh = series_puissance_kw.values * dt_heures
     df_tmp = pd.DataFrame({"cadran": cadrans, "energie_kwh": energie_kwh})
     energie_par_cadran = df_tmp.groupby("cadran")["energie_kwh"].sum()
-    
+
     cout_total_htt = 0.0
     for cadran, energie in energie_par_cadran.items():
         prix_fourniture = tarif_fourniture.get(cadran, 0) / 1000.0
         prix_capacite = tarif_capacite.get(cadran, 0) / 1000.0
-        # Récupération du TURPE spécifique au cadran (saisi par l'utilisateur)
         prix_turpe = turpe_dict.get(cadran, 0.0)
-        
         prix_go = (PRIX_GO / 1000.0) if inclure_go else 0.0
         prix_cee = PRIX_CEE / 1000.0
         prix_accise = accise_eur_mwh / 1000.0
-        
-        # Addition totale : Fourniture + Acheminement (TURPE) + Taxes
         prix_htt = prix_fourniture + prix_capacite + prix_turpe + prix_go + prix_cee + prix_accise
         cout_total_htt += energie * prix_htt
-        
+
     energie_totale = energie_par_cadran.sum()
     prix_moyen_htt = cout_total_htt / energie_totale if energie_totale > 0 else 0.0
-    
+
     return prix_moyen_htt * (1 + taux_tva), energie_par_cadran
 
 def prix_moyen_pondere_decharge_ttc(df_simu, dt_heures, segment_siege, cadran_siege, segment_bornes, cadran_bornes,
-                                      volume_siege, volume_bornes, accise_eur_mwh, taux_tva, turpe_dict):
-    """
-    Prix moyen pondéré (€/kWh TTC) du gain net, pondéré par le moment RÉEL où la batterie
-    décharge (pas par la consommation totale du site). La décharge n'étant pas attribuable
-    précisément au siège ou aux bornes prise séparément, on applique le tarif de chaque site
-    à la même série de décharge, puis on pondère par le poids habituel (volume de chaque site).
-    """
+                                      volume_siege, volume_bornes, accise_eur_mwh, taux_tva, turpe_dict,
+                                      mois_saison_haute=None, hc_debut_haute=22, hc_fin_haute=6,
+                                      hc_debut_basse=22, hc_fin_basse=6):
     decharge_series = df_simu["Autoconso_Totale_kW"] - np.minimum(df_simu["conso_kW"], df_simu["prod_kW"])
 
     prix_decharge_siege, _ = prix_moyen_pondere_ttc(decharge_series, dt_heures, segment_siege, cadran_siege,
-        True, accise_eur_mwh, taux_tva, turpe_dict)
+        True, accise_eur_mwh, taux_tva, turpe_dict, mois_saison_haute, hc_debut_haute, hc_fin_haute,
+        hc_debut_basse, hc_fin_basse)
     prix_decharge_bornes, _ = prix_moyen_pondere_ttc(decharge_series, dt_heures, segment_bornes, cadran_bornes,
-        True, accise_eur_mwh, taux_tva, turpe_dict)
+        True, accise_eur_mwh, taux_tva, turpe_dict, mois_saison_haute, hc_debut_haute, hc_fin_haute,
+        hc_debut_basse, hc_fin_basse)
 
     volume_total = volume_siege + volume_bornes
     if volume_total > 0:
@@ -1301,6 +1311,40 @@ if fichier_conso is not None and fichier_prod is not None:
 
                     turpe_dict = TARIFS_TURPE
                     
+                    st.markdown("##### Calendrier Heures Pleines / Heures Creuses")
+                    st.caption("Détermine comment chaque instant de vos données est classé dans son cadran "
+                               "tarifaire — à ajuster selon votre contrat Enedis réel.")
+
+                    mois_labels = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août",
+                                   "Septembre","Octobre","Novembre","Décembre"]
+                    mois_numeros = {label: i + 1 for i, label in enumerate(mois_labels)}
+                    mois_defaut_haute = ["Novembre","Décembre","Janvier","Février","Mars"]
+
+                    col_cal1, col_cal2 = st.columns(2)
+                    with col_cal1:
+                        mois_saison_haute_labels = st.multiselect("Mois en Saison Haute (hiver)", mois_labels,
+                            default=mois_defaut_haute, key="mois_saison_haute")
+                    with col_cal2:
+                        mois_saison_basse_affichage = [m for m in mois_labels if m not in mois_saison_haute_labels]
+                        st.caption("Mois en Saison Basse (été), déduits automatiquement :")
+                        st.write(", ".join(mois_saison_basse_affichage) if mois_saison_basse_affichage else "Aucun")
+
+                    mois_saison_haute_num = tuple(mois_numeros[m] for m in mois_saison_haute_labels)
+
+                    col_hc1, col_hc2 = st.columns(2)
+                    with col_hc1:
+                        st.markdown("**Heures Creuses — Saison Haute (hiver)**")
+                        heure_debut_hc_haute = st.number_input("Début (h)", min_value=0, max_value=23, value=22,
+                            key="hc_debut_haute")
+                        heure_fin_hc_haute = st.number_input("Fin (h)", min_value=0, max_value=23, value=6,
+                            key="hc_fin_haute")
+                    with col_hc2:
+                        st.markdown("**Heures Creuses — Saison Basse (été)**")
+                        heure_debut_hc_basse = st.number_input("Début (h)", min_value=0, max_value=23, value=22,
+                            key="hc_debut_basse")
+                        heure_fin_hc_basse = st.number_input("Fin (h)", min_value=0, max_value=23, value=6,
+                            key="hc_fin_basse")
+                    
                     st.markdown("##### Taxes")
                     col_t4, col_t5 = st.columns(2)
                     with col_t4:
@@ -1319,10 +1363,14 @@ if fichier_conso is not None and fichier_prod is not None:
                     conso_siege_seule = df["conso_kW"] - df["conso_bornes_kW"] if "conso_bornes_kW" in df.columns else df["conso_kW"]
 
                     prix_ttc_siege, _ = prix_moyen_pondere_ttc(conso_siege_seule, dt_actuel, segment_siege, cadran_siege,
-                        True, accise_eur_mwh, taux_tva, turpe_dict)
+                        True, accise_eur_mwh, taux_tva, turpe_dict,
+                        mois_saison_haute_num, heure_debut_hc_haute, heure_fin_hc_haute,
+                        heure_debut_hc_basse, heure_fin_hc_basse)
                     if "conso_bornes_kW" in df.columns and df["conso_bornes_kW"].sum() > 0:
                         prix_ttc_bornes, _ = prix_moyen_pondere_ttc(df["conso_bornes_kW"], dt_actuel, segment_bornes,
-                            cadran_bornes, True, accise_eur_mwh, taux_tva, turpe_dict)
+                            cadran_bornes, True, accise_eur_mwh, taux_tva, turpe_dict,
+                            mois_saison_haute_num, heure_debut_hc_haute, heure_fin_hc_haute,
+                            heure_debut_hc_basse, heure_fin_hc_basse)
                     else:
                         prix_ttc_bornes = prix_ttc_siege
 
@@ -1541,7 +1589,9 @@ if fichier_conso is not None and fichier_prod is not None:
 
                     prix_ttc_moyen_decharge = prix_moyen_pondere_decharge_ttc(
                         df_simu_etude, dt_etude, segment_siege, cadran_siege, segment_bornes, cadran_bornes,
-                        volume_siege, volume_bornes, accise_eur_mwh, taux_tva, turpe_dict
+                        volume_siege, volume_bornes, accise_eur_mwh, taux_tva, turpe_dict,
+                        mois_saison_haute_num, heure_debut_hc_haute, heure_fin_hc_haute,
+                        heure_debut_hc_basse, heure_fin_hc_basse
                     )
                     st.caption(f"Prix évité pondéré par le moment réel de décharge de la batterie : "
                                f"{prix_ttc_moyen_decharge:.4f} €/kWh (contre {prix_ttc_moyen:.4f} €/kWh "
