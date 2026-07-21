@@ -326,7 +326,7 @@ def prix_moyen_pondere_ttc(series_puissance_kw, dt_heures, segment, structure_ca
 def calculer_flux_et_indicateurs(gain_net_kwh_an1, capex, opex_annuel_an1, prix_achat_evite_an1, prix_vente_reseau,
                                  taux_actualisation, duree_vie_ans, degradation_pct_an=0.0,
                                  taux_inflation_energie=0.0, taux_inflation_opex=0.0):
-    """Calcule VAN, TRI, LCOS, Payback et ratio B/C pour une capacité donnée en intégrant l'inflation."""
+    """Calcule VAN, TRI, LCOS, TRB et ratio B/C pour une capacité donnée en intégrant l'inflation."""
     annees = np.arange(0, duree_vie_ans + 1)
     recettes = np.zeros(duree_vie_ans + 1)
     opex = np.zeros(duree_vie_ans + 1)
@@ -1251,7 +1251,7 @@ if fichier_conso is not None and fichier_prod is not None:
                         resultats_eco.append({
                             "Capacité (kWh)": cap, "CAPEX (€)": capex,
                             "VAN (€)": indic["van"], "TRI (%)": indic["tri"], "LCOS (€/kWh)": indic["lcos"],
-                            "Payback (années)": indic["payback"], "Ratio B/C": indic["ratio_bc"],
+                            "TRB (années)": indic["payback"], "Ratio B/C": indic["ratio_bc"],
                         })
                     df_eco = pd.DataFrame(resultats_eco)
 
