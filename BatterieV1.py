@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Tue Jul 21 11:57:55 2026
+
+@author: stagiaire
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Dashboard Autoconsommation - Version Finale
 Inclut les 3 onglets initiaux + l'onglet 4 Analyse Annuelle avec sélection d'hypothèses
 """
@@ -330,25 +337,6 @@ def prix_moyen_pondere_ttc(series_puissance_kw, dt_heures, segment, structure_ca
     
     return prix_moyen_htt * (1 + taux_tva), energie_par_cadran
 
-def prix_moyen_pondere_decharge_ttc(df_simu, dt_heures, segment_siege, cadran_siege, segment_bornes, cadran_bornes,
-                                      volume_siege, volume_bornes, accise_eur_mwh, taux_tva, turpe_dict):
-    """
-    Prix moyen pondéré (€/kWh TTC) du gain net, pondéré par le moment RÉEL où la batterie
-    décharge (pas par la consommation totale du site). La décharge n'étant pas attribuable
-    précisément au siège ou aux bornes prise séparément, on applique le tarif de chaque site
-    à la même série de décharge, puis on pondère par le poids habituel (volume de chaque site).
-    """
-    decharge_series = df_simu["Autoconso_Totale_kW"] - np.minimum(df_simu["conso_kW"], df_simu["prod_kW"])
-
-    prix_decharge_siege, _ = prix_moyen_pondere_ttc(decharge_series, dt_heures, segment_siege, cadran_siege,
-        True, accise_eur_mwh, taux_tva, turpe_dict)
-    prix_decharge_bornes, _ = prix_moyen_pondere_ttc(decharge_series, dt_heures, segment_bornes, cadran_bornes,
-        True, accise_eur_mwh, taux_tva, turpe_dict)
-
-    volume_total = volume_siege + volume_bornes
-    if volume_total > 0:
-        return (prix_decharge_siege * volume_siege + prix_decharge_bornes * volume_bornes) / volume_total
-    return prix_decharge_siege
 def calculer_flux_et_indicateurs(gain_net_kwh_an1, capex, opex_annuel_an1, prix_achat_evite_an1, prix_vente_reseau,
                                  taux_actualisation, duree_vie_ans, degradation_pct_an=0.0,
                                  taux_inflation_energie=0.0, taux_inflation_opex=0.0):
@@ -1465,28 +1453,14 @@ if fichier_conso is not None and fichier_prod is not None:
                     capex_v2 = col_v5.number_input("CAPEX total (€ HT)", min_value=0.0,
                         value=capacite_etude * 1000.0, step=1000.0, key="capex_v2_input",
                         help="Valeur fictive par défaut (1 000 €/kWh).")
-                    
-                    
-                    puissance_onduleur_etude = capacite_etude / 2.0
-                    df_simu_etude, dt_etude = simuler_systeme_avec_batterie(df, capacite_etude, puissance_onduleur_etude, 0)
-
-                    prix_ttc_moyen_decharge = prix_moyen_pondere_decharge_ttc(
-                        df_simu_etude, dt_etude, segment_siege, cadran_siege, segment_bornes, cadran_bornes,
-                        volume_siege, volume_bornes, accise_eur_mwh, taux_tva, turpe_dict
-                    )
-                    st.caption(f"Prix évité pondéré par le moment réel de décharge de la batterie : "
-                               f"{prix_ttc_moyen_decharge:.4f} €/kWh (contre {prix_ttc_moyen:.4f} €/kWh "
-                               f"si pondéré par la conso totale du site).")
 
                     df_enolab = calculer_tableau_enolab(
                         capex=capex_v2, opex_an1=opex_an1_v2, taux_inflation_opex=taux_inflation_opex,
-                        gain_net_kwh_an1=gain_net_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen_decharge,
+                        gain_net_kwh_an1=gain_net_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen,
                         taux_inflation_energie=taux_inflation_energie,
                         revenu_producteur_an1=revenu_producteur_an1, taux_inflation_revenu_producteur=taux_inflation_opex,
-                        duree_vie_ans=20, degradation_pct_an=degradation_pct,
-                        prix_vente_reseau=prix_vente_reseau
+                        duree_vie_ans=20, degradation_pct_an=degradation_pct
                     )
-
 
                     def fmt_eur(x):
                         return "" if pd.isna(x) else f"{x:,.0f}"
