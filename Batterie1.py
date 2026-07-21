@@ -417,6 +417,16 @@ def carte_indicateur(titre, valeur, couleur_fond, couleur_accent, taille_titre=1
         <div style="font-size: {taille_valeur}px; color: {couleur_accent}; font-weight: 700; margin-top: 4px;">{valeur}</div>
     </div>
     """
+
+def couleur_positif(x):
+    if pd.isna(x):
+        return ""
+    return "background-color: #C6EFCE; color: #006100; font-weight: 600" if x > 0 else ""
+
+def surligner_premiere_ligne(row):
+    if row.name == df_eco.index[0]:
+        return ["background-color: #FFF9C4"] * len(row)
+    return [""] * len(row)
 # ==========================================
 # TARIFS BPU OCTOPUS ENERGY — Année 2026
 # ==========================================
@@ -1295,28 +1305,29 @@ if fichier_conso is not None and fichier_prod is not None:
 
                     st.dataframe(df_eco.style.format({
                         "CAPEX (€)": fmt_eur0, "VAN (€)": fmt_eur0, "TRI (%)": fmt_num1,
-                        "LCOE (€/kWh)": fmt_num3, "TRB (année)": fmt_num1, "Ratio B/C": fmt_num2,
-                    }), column_config={
+                        "LCOE (€/kWh)": fmt_num3, "TRB (années)": fmt_num1, "Ratio B/C": fmt_num2,
+                    }).map(
+                        couleur_positif, subset=["VAN (€)", "TRI (%)"]
+                    ).apply(
+                        surligner_premiere_ligne, axis=1
+                    ), column_config={
                         "Capacité (kWh)": st.column_config.Column(
-                            help="Taille de la batterie testée, de 0 à 300 kWh par pas de 5 kWh."
+                            help="Taille de la batterie testée, de 0 à 500 kWh par pas de 5 kWh. La ligne à 0 kWh (surlignée) sert de référence : sans batterie."
                         ),
                         "CAPEX (€)": st.column_config.Column(
                             help="Investissement initial pour cette capacité : coût unitaire (€/kWh) × capacité + coûts fixes d'installation."
                         ),
                         "VAN (€)": st.column_config.Column(
-                            help="Valeur Actuelle Nette : somme des flux de trésorerie futurs actualisés, moins l'investissement initial. "
-                                 "Positive = le projet crée de la valeur au taux d'actualisation retenu."
+                            help="Valeur Actuelle Nette : somme des flux de trésorerie futurs actualisés, moins l'investissement initial. Vert = positive (le projet crée de la valeur)."
                         ),
                         "TRI (%)": st.column_config.Column(
-                            help="Taux de Rentabilité Interne : le taux d'actualisation pour lequel la VAN serait nulle. "
-                                 "Le rendement annuel moyen implicite du projet."
+                            help="Taux de Rentabilité Interne. Vert = positif."
                         ),
                         "LCOE (€/kWh)": st.column_config.Column(
-                            help="Coût actualisé moyen de chaque kWh délivré par la batterie sur sa durée de vie (LCOE/LCOS). "
-                                 "À comparer au prix d'achat évité : plus bas = plus rentable."
+                            help="Coût actualisé moyen du kWh délivré par la batterie (LCOE/LCOS). Plus bas = plus rentable."
                         ),
                         "TRB (années)": st.column_config.Column(
-                            help="Temps de retour brut (non actualisé) : nombre d'années pour que les flux cumulés redeviennent positifs."
+                            help="Temps de retour brut (non actualisé)."
                         ),
                         "Ratio B/C": st.column_config.Column(
                             help="Ratio Bénéfice/Coût : recettes actualisées ÷ coûts actualisés. Supérieur à 1 = rentable."
