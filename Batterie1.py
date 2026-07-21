@@ -418,6 +418,7 @@ def carte_indicateur(titre, valeur, couleur_fond, couleur_accent, taille_titre=1
     </div>
     """
 
+
 def style_indicateur(x, favorable=False):
     if pd.isna(x):
         return "background-color: #F5F5F5; color: #9E9E9E"
@@ -425,10 +426,7 @@ def style_indicateur(x, favorable=False):
         return "background-color: #C6EFCE; color: #006100; font-weight: 600"
     return "background-color: #EDEDED"
 
-def surligner_premiere_ligne(row):
-    if row.name == df_eco.index[0]:
-        return ["background-color: #FFF9C4"] * len(row)
-    return [""] * len(row)
+def style_van(x):
     return style_indicateur(x, favorable=(not pd.isna(x) and x > 0))
 
 def style_tri(x):
@@ -1274,9 +1272,9 @@ if fichier_conso is not None and fichier_prod is not None:
                             taux_inflation_energie, taux_inflation_opex
                         )
                         resultats_eco.append({
-                            "Capacité (kWh)": cap, "CAPEX (€)": capex,
-                            "VAN (€)": indic["van"], "TRI (%)": indic["tri"], "LCOS (€/kWh)": indic["lcos"],
-                            "TRB (années)": indic["payback"], "Ratio B/C": indic["ratio_bc"],
+                          "Capacité (kWh)": cap, "CAPEX (€)": capex,
+                          "VAN (€)": indic["van"], "TRI (%)": indic["tri"], "LCOE (€/kWh)": indic["lcos"],
+                          "TRB (années)": indic["payback"], "Ratio B/C": indic["ratio_bc"],
                         })
                     df_eco = pd.DataFrame(resultats_eco)
 
