@@ -418,15 +418,30 @@ def carte_indicateur(titre, valeur, couleur_fond, couleur_accent, taille_titre=1
     </div>
     """
 
-def couleur_positif(x):
+def style_indicateur(x, favorable=False):
     if pd.isna(x):
-        return ""
-    return "background-color: #C6EFCE; color: #006100; font-weight: 600" if x > 0 else ""
+        return "background-color: #F5F5F5; color: #9E9E9E"
+    if favorable:
+        return "background-color: #C6EFCE; color: #006100; font-weight: 600"
+    return "background-color: #EDEDED"
 
 def surligner_premiere_ligne(row):
     if row.name == df_eco.index[0]:
         return ["background-color: #FFF9C4"] * len(row)
     return [""] * len(row)
+    return style_indicateur(x, favorable=(not pd.isna(x) and x > 0))
+
+def style_tri(x):
+    return style_indicateur(x, favorable=(not pd.isna(x) and x > 0))
+
+def style_ratio_bc(x):
+    return style_indicateur(x, favorable=(not pd.isna(x) and x > 1))
+
+def style_lcos(x):
+    return style_indicateur(x, favorable=False)
+
+def style_payback(x):
+    return style_indicateur(x, favorable=False)
 # ==========================================
 # TARIFS BPU OCTOPUS ENERGY — Année 2026
 # ==========================================
@@ -1307,30 +1322,61 @@ if fichier_conso is not None and fichier_prod is not None:
                         "CAPEX (€)": fmt_eur0, "VAN (€)": fmt_eur0, "TRI (%)": fmt_num1,
                         "LCOE (€/kWh)": fmt_num3, "TRB (années)": fmt_num1, "Ratio B/C": fmt_num2,
                     }).map(
-                        couleur_positif, subset=["VAN (€)", "TRI (%)"]
-                    ).apply(
-                        surligner_premiere_ligne, axis=1
+                        style_van, subset=["VAN (€)"]
+                    ).map(
+                        style_tri, subset=["TRI (%)"]
+                    ).map(
+                        style_lcos, subset=["LCOE (€/kWh)"]
+                    ).map(
+                        style_payback, subset=["TRB (années)"]
+                    ).map(
+                        style_ratio_bc, subset=["Ratio B/C"]
                     ), column_config={
                         "Capacité (kWh)": st.column_config.Column(
-                            help="Taille de la batterie testée, de 0 à 500 kWh par pas de 5 kWh. La ligne à 0 kWh (surlignée) sert de référence : sans batterie."
+                            help="Capacité de batterie testée, de 0 à 500 kWh par pas de 5 kWh. Pour chaque "
+                                 "valeur, le gain énergétique net associé (calculé dans l'onglet 4) est "
+                                 "valorisé avec les hypothèses économiques de l'onglet « Hypothèses »."
                         ),
                         "CAPEX (€)": st.column_config.Column(
-                            help="Investissement initial pour cette capacité : coût unitaire (€/kWh) × capacité + coûts fixes d'installation."
+                            help="Investissement initial (année 0) pour cette capacité : (coût unitaire "
+                                 "€/kWh × capacité) + coûts fixes d'installation, tous deux définis dans "
+                                 "l'onglet « Hypothèses ». Sert de base au calcul de la VAN, du LCOS et du "
+                                 "ratio B/C."
                         ),
                         "VAN (€)": st.column_config.Column(
-                            help="Valeur Actuelle Nette : somme des flux de trésorerie futurs actualisés, moins l'investissement initial. Vert = positive (le projet crée de la valeur)."
+                            help="Valeur Actuelle Nette : somme de tous les flux de trésorerie annuels "
+                                 "(recettes − OPEX), actualisés au taux d'actualisation retenu, moins le "
+                                 "CAPEX initial. VAN = −CAPEX + Σ [flux net de l'année t ÷ (1+taux)^t]. "
+                                 "Positive (vert) = le projet crée de la valeur à ce taux ; négative (gris) "
+                                 "= il en détruit. C'est cet indicateur qui désigne la « capacité "
+                                 "économiquement optimale » au-dessus du graphique."
                         ),
                         "TRI (%)": st.column_config.Column(
-                            help="Taux de Rentabilité Interne. Vert = positif."
+                            help="Taux de Rentabilité Interne : le taux d'actualisation pour lequel la VAN "
+                                 "serait exactement nulle — le rendement annuel moyen implicite de "
+                                 "l'investissement. Vert si supérieur à 0 %. Non calculable (N/A) si les "
+                                 "flux ne changent jamais de signe sur la durée de vie retenue (jamais "
+                                 "rentable, quel que soit le taux)."
                         ),
                         "LCOE (€/kWh)": st.column_config.Column(
-                            help="Coût actualisé moyen du kWh délivré par la batterie (LCOE/LCOS). Plus bas = plus rentable."
+                            help="Levelized Cost Of Storage : coût actualisé moyen de chaque kWh délivré "
+                                 "par la batterie sur sa durée de vie = (CAPEX + OPEX actualisés) ÷ (énergie "
+                                 "délivrée actualisée). Se compare directement au prix d'achat évité calculé "
+                                 "dans l'onglet « Tarification » : plus il est bas, moins cher revient le "
+                                 "kWh stocké par rapport à l'acheter."
                         ),
                         "TRB (années)": st.column_config.Column(
-                            help="Temps de retour brut (non actualisé)."
+                            help="Temps de retour brut (non actualisé) : nombre d'années pour que la somme "
+                                 "cumulée des flux de trésorerie annuels redevienne positive après "
+                                 "l'investissement initial, calculé par interpolation entre les deux années "
+                                 "encadrant le passage à zéro. Vide (N/A) si jamais atteint sur la durée de "
+                                 "vie retenue."
                         ),
                         "Ratio B/C": st.column_config.Column(
-                            help="Ratio Bénéfice/Coût : recettes actualisées ÷ coûts actualisés. Supérieur à 1 = rentable."
+                            help="Ratio Bénéfice/Coût : recettes actualisées ÷ coûts actualisés (CAPEX + "
+                                 "OPEX). Vert si supérieur à 1 (les bénéfices actualisés dépassent les "
+                                 "coûts) ; sous 1, l'investissement ne se rembourse pas sur la durée de vie "
+                                 "retenue, même en tenant compte de l'actualisation."
                         ),
                     })
 
