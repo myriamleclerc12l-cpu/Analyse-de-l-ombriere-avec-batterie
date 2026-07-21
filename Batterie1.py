@@ -542,38 +542,27 @@ fichier_prod = st.sidebar.file_uploader("Production PV - Ombrière", type=["csv"
 
 
 if fichier_conso is not None and fichier_prod is not None:
-    st.sidebar.success("Fichiers réels chargés.")
-    df_complet = charger_donnees_reelles(fichier_conso, fichier_prod, fichier_bornes)
+       st.sidebar.success("Fichiers réels chargés.")
+       df_complet = charger_donnees_reelles(fichier_conso, fichier_prod, fichier_bornes)
     
     # --- Sélection de la période ---
-    st.markdown("---")
-    st.header("Période d'analyse")
+    # --- Sélection de la période ---
+       date_min = df_complet.index.min().date()
+       date_max = df_complet.index.max().date()
 
-    date_min = df_complet.index.min().date()
-    date_max = df_complet.index.max().date()
+       tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "Simulation Temporelle Courte Durée",
+        "Simulation Temporelle Longue Durée",
+        "Gain de la Batterie",
+        "Analyse Annuelle",
+        "Analyse Économique"
+       ])
 
-    col_date1, col_date2 = st.columns(2)
-    date_debut = col_date1.date_input("Date de début", value=date_min, min_value=date_min, max_value=date_max, format="DD/MM/YYYY")
-    date_fin = col_date2.date_input("Date de fin (incluse)", value=date_min, min_value=date_min, max_value=date_max, format="DD/MM/YYYY")
-
-    mask = (df_complet.index.date >= date_debut) & (df_complet.index.date <= date_fin)
-    df = df_complet.loc[mask]
-
-    if df.empty:
-        st.error("Aucune donnée trouvée pour les dates sélectionnées.")
-    else:
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "Simulation Temporelle Courte Durée",
-            "Simulation Temporelle Longue Durée",
-            "Gain de la Batterie",
-            "Analyse Annuelle",
-            "Analyse Économique"
-        ])
+    # ----------------------------------------------------
+    # ONGLET 1 : Simulation Temporelle
+    # ----------------------------------------------------
+       with tab1:
         
-        # ----------------------------------------------------
-        # ONGLET 1 : Simulation Temporelle
-        # ----------------------------------------------------
-        with tab1:
             st.markdown("---")
             st.header("Simulation temporelle courte durée (< 1 mois) ")
             st.markdown("""
@@ -581,6 +570,14 @@ if fichier_conso is not None and fichier_prod is not None:
        périodes courtes (D'une journée à quelques semaines) avec un pas de temps de 30 min. 
        
        """  )
+            st.subheader("Période d'analyse")
+            col_date1, col_date2 = st.columns(2)
+            date_debut = col_date1.date_input("Date de début", value=date_min, min_value=date_min, max_value=date_max, format="DD/MM/YYYY", key="date_debut_t1")
+            date_fin = col_date2.date_input("Date de fin (incluse)", value=date_min, min_value=date_min, max_value=date_max, format="DD/MM/YYYY", key="date_fin_t1")
+            mask = (df_complet.index.date >= date_debut) & (df_complet.index.date <= date_fin)
+            df = df_complet.loc[mask]
+            if df.empty:
+                st.error("Aucune donnée trouvée pour les dates sélectionnées.")
 
             col_bat1, col_bat2 = st.columns(2)
             capacite_batterie = col_bat1.slider("Capacité (kWh)", min_value=0.0, max_value=500.0, value=50.0, step=1.0, help="Volume total d'énergie stockable.")
@@ -698,6 +695,15 @@ if fichier_conso is not None and fichier_prod is not None:
             énergétique exact), mais **l'affichage est resserré à 1 point par jour** : le pic de consommation 
             et le pic de production de chaque journée, ainsi que l'état de charge de la batterie.
             """)
+            
+            st.subheader("Période d'analyse")
+            col_date1_t2, col_date2_t2 = st.columns(2)
+            date_debut = col_date1_t2.date_input("Date de début", value=date_min, min_value=date_min, max_value=date_max, format="DD/MM/YYYY", key="date_debut_t2")
+            date_fin = col_date2_t2.date_input("Date de fin (incluse)", value=date_min, min_value=date_min, max_value=date_max, format="DD/MM/YYYY", key="date_fin_t2")
+            mask = (df_complet.index.date >= date_debut) & (df_complet.index.date <= date_fin)
+            df = df_complet.loc[mask]
+            if df.empty:
+                st.error("Aucune donnée trouvée pour les dates sélectionnées.")
 
             if (date_fin - date_debut).days < 30:
                 st.warning("La période sélectionnée fait moins d'un mois. Pour une vision détaillée, "
@@ -917,6 +923,15 @@ if fichier_conso is not None and fichier_prod is not None:
             Concrètement : *Gain net = Énergie autoconsommée avec batterie − Énergie autoconsommée sans batterie*.
             Il représente donc les kWh de production solaire qui, sans la batterie, auraient été perdus (renvoyés au réseau) et qui sont désormais utilisés sur place.
             """)
+            
+            st.subheader("Période d'analyse")
+            col_date1_t3, col_date2_t3 = st.columns(2)
+            date_debut = col_date1_t3.date_input("Date de début", value=date_min, min_value=date_min, max_value=date_max, format="DD/MM/YYYY", key="date_debut_t3")
+            date_fin = col_date2_t3.date_input("Date de fin (incluse)", value=date_min, min_value=date_min, max_value=date_max, format="DD/MM/YYYY", key="date_fin_t3")
+            mask = (df_complet.index.date >= date_debut) & (df_complet.index.date <= date_fin)
+            df = df_complet.loc[mask]
+            if df.empty:
+                st.error("Aucune donnée trouvée pour les dates sélectionnées.")
             
             max_cap_test = 500
             soc_init_test = st.number_input("Charge initiale au départ (%) :", value=0, min_value=0, max_value=100, key="num_soc_t2", help="Niveau de charge de la batterie au début de la période sélectionnée.")
@@ -1172,7 +1187,7 @@ if fichier_conso is not None and fichier_prod is not None:
         # ----------------------------------------------------
                         
         with tab5:
-            st.header("Analyse Économique", help=(
+            st.header("Analyse Économique (Business Plan)", help=(
                 "**Comment lire cet onglet :** il se déroule en 4 étapes, dans les sous-onglets ci-dessous.\n\n"
                 "1. **Tarification** — calcule le prix réel de l'électricité évitée (€/kWh), à partir du BPU Octopus, du TURPE et des taxes.\n\n"
                 "2. **Hypothèses** — les paramètres d'investissement (CAPEX, OPEX, taux d'actualisation, dégradation...), à ajuster.\n\n"
@@ -1189,8 +1204,9 @@ if fichier_conso is not None and fichier_prod is not None:
                            "directement son résultat (gain énergétique par capacité testée).")
             else:
                 df_res_t4 = st.session_state["df_resultats_t4"]
-
+                df = df_complet
                 st.markdown("---")
+
 
                 # ==========================================================
                 # SOUS-ONGLETS
