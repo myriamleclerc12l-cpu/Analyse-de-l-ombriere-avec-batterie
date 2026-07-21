@@ -1229,16 +1229,14 @@ if fichier_conso is not None and fichier_prod is not None:
                         "HCSh": "Heures Creuses, Saison Haute (22h-6h, novembre à mars).",
                         "HPSb": "Heures Pleines, Saison Basse (6h-22h, avril à octobre).",
                         "HCSb": "Heures Creuses, Saison Basse (22h-6h, avril à octobre).",
-                        "Pte": "Pointe fixe (période de forte tension sur le réseau). ⚠️ Non appliquée "
+                        "Pte": "Pointe fixe (période de forte tension sur le réseau).  Non appliquée "
                                "dans le calcul actuel — la plage horaire de Pointe n'est pas encore "
                                "définie, ces instants sont comptés comme Heures Pleines à la place.",
                     }
 
                     with st.expander("Détail Fourniture (BPU) par segment tarifaire"):
                         st.caption("Prix de l'électricité elle-même (hors acheminement et taxes), facturé "
-                                   "par Octopus Energy selon le BPU — un bloc par combinaison segment/"
-                                   "structure réellement utilisée (regroupé si Siège et Bornes partagent "
-                                   "la même).")
+                                   "par Octopus Energy selon le BPU.")
 
                         combinaisons_fourniture = {}
                         for nom_site, segment, cadran in [("Siège", segment_siege, cadran_siege),
@@ -1257,7 +1255,7 @@ if fichier_conso is not None and fichier_prod is not None:
                                         "#F5F5F5", "#616161", taille_titre=11, taille_valeur=13,
                                         aide=aide_cadrans_generique.get(c, "")), unsafe_allow_html=True)
                             if segment == "C2":
-                                st.caption("⚠️ Le tarif Pointe ci-dessus est affiché à titre informatif, mais "
+                                st.caption(" Le tarif Pointe ci-dessus est affiché à titre informatif, mais "
                                            "n'est pas encore pris en compte dans le calcul du prix évité "
                                            "(voir l'infobulle du cadran « Pte »).")
 
