@@ -1172,7 +1172,7 @@ if fichier_conso is not None and fichier_prod is not None:
         # ----------------------------------------------------
                         
         with tab5:
-            st.header("Analyse Économique (Business Plan)", help=(
+            st.header("Analyse Économique", help=(
                 "**Comment lire cet onglet :** il se déroule en 4 étapes, dans les sous-onglets ci-dessous.\n\n"
                 "1. **Tarification** — calcule le prix réel de l'électricité évitée (€/kWh), à partir du BPU Octopus, du TURPE et des taxes.\n\n"
                 "2. **Hypothèses** — les paramètres d'investissement (CAPEX, OPEX, taux d'actualisation, dégradation...), à ajuster.\n\n"
