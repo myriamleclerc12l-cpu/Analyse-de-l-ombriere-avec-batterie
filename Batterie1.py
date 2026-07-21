@@ -1104,7 +1104,7 @@ if fichier_conso is not None and fichier_prod is not None:
                 # SOUS-ONGLETS
                 # ==========================================================
                 sous_tab1, sous_tab2, sous_tab3, sous_tab4 = st.tabs([
-                    "1. Tarification", "2. Hypothèses", "3. Comparaison des capacités", "4. Détail (Enolab)"
+                    "1. Tarification", "2. Hypothèses", "3. Comparaison des capacités", "4. Bilan Financier"
                 ])
 
                 # ----------------------------------------------------------------
