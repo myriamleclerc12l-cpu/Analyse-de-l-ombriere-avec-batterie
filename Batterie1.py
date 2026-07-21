@@ -1223,8 +1223,7 @@ if fichier_conso is not None and fichier_prod is not None:
                     st.markdown("##### Taxes")
                     col_t4, col_t5 = st.columns(2)
                     col_t4.metric("Accise électricité", f"{ACCISE_EUR_KWH:.4f} €/kWh",
-                        help="Valeur fictive, en attente du taux réel applicable au TE13. Non modifiable ici — "
-                             "pour la changer, ajustez la constante ACCISE_EUR_KWH dans le code.")
+                        help="taxe qui s’ajoute sur les factures d’électricité des usagers en France. Elle est notamment destinée à dédommager les opérateurs des divers surcoûts qu’ils supportent et à financer les politiques de soutien aux énergies renouvelables.")
                     taux_tva = col_t5.number_input("TVA (%)", min_value=0.0, max_value=25.0, value=20.0, step=0.1,
                         key="taux_tva_input") / 100.0
                     accise_eur_mwh = ACCISE_EUR_KWH * 1000.0
@@ -1262,7 +1261,6 @@ if fichier_conso is not None and fichier_prod is not None:
                 # SOUS-ONGLET 2 : HYPOTHÈSES ÉCONOMIQUES
                 # ----------------------------------------------------------------
                 with sous_tab2:
-                    st.caption("Tous les paramètres ci-dessous sont fictifs, en attente de données réelles.")
 
                     with st.container(border=True):
                         st.markdown("##### Investissement")
