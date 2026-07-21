@@ -409,15 +409,18 @@ def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_a
         })
     return pd.DataFrame(lignes)
 
-def carte_indicateur(titre, valeur, couleur_fond, couleur_accent, taille_titre=12, taille_valeur=20):
+def carte_indicateur(titre, valeur, couleur_fond, couleur_accent, taille_titre=12, taille_valeur=20, aide=None):
+    titre_html = titre
+    if aide:
+        aide_echap = aide.replace('"', "'")
+        titre_html = f'{titre} <span title="{aide_echap}" style="cursor: help; color: #999;">&#9432;</span>'
     return f"""
     <div style="background-color:{couleur_fond}; border-left: 6px solid {couleur_accent};
                 border-radius: 8px; padding: 16px 20px; margin-bottom: 8px;">
-        <div style="font-size: {taille_titre}px; color: #444; font-weight: 500;">{titre}</div>
+        <div style="font-size: {taille_titre}px; color: #444; font-weight: 500;">{titre_html}</div>
         <div style="font-size: {taille_valeur}px; color: {couleur_accent}; font-weight: 700; margin-top: 4px;">{valeur}</div>
     </div>
     """
-
 def style_indicateur(x, favorable=False):
     if favorable:
         return "background-color: #C6EFCE; color: #006100; font-weight: 600"
@@ -596,14 +599,18 @@ if fichier_conso is not None and fichier_prod is not None:
             nouveau_tac = (energie_pv_valorisee / prod_totale * 100) if prod_totale > 0 else 0
             nouveau_tap = (autoconso_totale / conso_totale * 100) if conso_totale > 0 else 0
 
-            col_kpi1.metric("Taux d'Autoconso. (TAC)", f"{nouveau_tac:.1f} %")
-            col_kpi2.metric("Taux d'Autoprod. (TAP)", f"{nouveau_tap:.1f} %")
-            col_kpi3.metric(
-                "Énergie totale économisée (gain net)",
-                f"{gain_net:.1f} kWh",
-                help=f"Gain net apporté par la batterie par rapport à une installation sans stockage, "
-                     f"qui autoconsommerait naturellement {autoconso_sans_bat:.1f} kWh sur cette période."
-            )
+            with col_kpi1:
+                st.markdown(carte_indicateur("Taux d'Autoconso. (TAC)", f"{nouveau_tac:.1f} %",
+                    "#E3F2FD", "#1565C0"), unsafe_allow_html=True)
+            with col_kpi2:
+                st.markdown(carte_indicateur("Taux d'Autoprod. (TAP)", f"{nouveau_tap:.1f} %",
+                    "#FFF3E0", "#E65100"), unsafe_allow_html=True)
+            with col_kpi3:
+                st.markdown(carte_indicateur("Énergie totale économisée (gain net)", f"{gain_net:.1f} kWh",
+                    "#E8F5E9", "#2E7D32",
+                    aide=f"Gain net apporté par la batterie par rapport à une installation sans stockage, "
+                         f"qui autoconsommerait naturellement {autoconso_sans_bat:.1f} kWh sur cette période."
+                    ), unsafe_allow_html=True)
             
             st.markdown("---")
             st.subheader("Comparaison des courbes de charge")
@@ -767,14 +774,19 @@ if fichier_conso is not None and fichier_prod is not None:
             tac_ld = (energie_pv_valorisee_ld / prod_totale_ld * 100) if prod_totale_ld > 0 else 0
             tap_ld = (autoconso_totale_ld / conso_totale_ld * 100) if conso_totale_ld > 0 else 0
 
-            col_kpi1_ld.metric("Taux d'Autoconso. (TAC)", f"{tac_ld:.1f} %")
-            col_kpi2_ld.metric("Taux d'Autoprod. (TAP)", f"{tap_ld:.1f} %")
-            col_kpi3_ld.metric(
-                "Énergie totale économisée (gain net)",
-                f"{gain_net_ld:.1f} kWh",
-                help=f"Gain net apporté par la batterie par rapport à une installation sans stockage, "
-                     f"qui autoconsommerait naturellement {autoconso_sans_bat_ld:.1f} kWh sur cette période."
-            )
+            with col_kpi1_ld:
+                st.markdown(carte_indicateur("Taux d'Autoconso. (TAC)", f"{tac_ld:.1f} %",
+                    "#E3F2FD", "#1565C0"), unsafe_allow_html=True)
+            with col_kpi2_ld:
+                st.markdown(carte_indicateur("Taux d'Autoprod. (TAP)", f"{tap_ld:.1f} %",
+                    "#FFF3E0", "#E65100"), unsafe_allow_html=True)
+            with col_kpi3_ld:
+                st.markdown(carte_indicateur("Énergie totale économisée (gain net)", f"{gain_net_ld:.1f} kWh",
+                    "#E8F5E9", "#2E7D32",
+                    aide=f"Gain net apporté par la batterie par rapport à une installation sans stockage, "
+                         f"qui autoconsommerait naturellement {autoconso_sans_bat_ld:.1f} kWh sur cette période."
+                    ), unsafe_allow_html=True)
+                
             st.markdown("---")
             st.subheader("Comparaison des courbes de charge (pics quotidiens)")
             col_cb1_ld, col_cb2_ld, col_cb3_ld = st.columns(3)
