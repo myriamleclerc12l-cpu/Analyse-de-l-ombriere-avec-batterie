@@ -1140,7 +1140,7 @@ if fichier_conso is not None and fichier_prod is not None:
         # ----------------------------------------------------
                         
         with tab5:
-            st.header("Analyse Économique (Business Plan)")
+            st.header("Analyse Économique")
             st.markdown("""
             Cet onglet valorise financièrement le gain énergétique de la batterie (calculé dans l'onglet 4)
             pour déterminer si — et à quelle capacité — l'investissement est rentable.
@@ -1177,7 +1177,7 @@ if fichier_conso is not None and fichier_prod is not None:
                 # ----------------------------------------------------------------
                 with sous_tab1:
                     st.caption("Le prix payé se décompose en 3 familles de coûts, additionnées pour obtenir "
-                               "le prix complet évité : la fourniture (Octopus), l'acheminement (TURPE, "
+                               "le prix complet évité : la fourniture (BPU), l'acheminement (TURPE, "
                                "Enedis) et les taxes.")
 
                     st.markdown("##### Fourniture — BPU Octopus Energy 2026")
@@ -1223,7 +1223,7 @@ if fichier_conso is not None and fichier_prod is not None:
                     st.markdown("##### Taxes")
                     col_t4, col_t5 = st.columns(2)
                     with col_t4:
-                        st.markdown(carte_indicateur("Accise électricité", f"{ACCISE_EUR_KWH:.4f} €/kWh",
+                        st.markdown(carte_indicateur("Accise électricité", f"{ACCISE_EUR_KWH:.5f} €/kWh",
                             "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
                             aide="taxe qui s’ajoute sur les factures d’électricité des usagers en France. "
                             "Elle est notamment destinée à dédommager les opérateurs des divers surcoûts qu’ils supportent et à financer "
