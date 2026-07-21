@@ -455,43 +455,53 @@ def style_indicateur(x, favorable=False):
     return ""
 
 def choisir_segment_et_cadran(nom_site, key_prefix):
-                        st.markdown(f"**{nom_site}**")
-                        segment = st.selectbox(f"Segment tarifaire — {nom_site}", SEGMENTS_DISPONIBLES, key=f"segment_{key_prefix}")
-                        options_cadran = TARIFS_BPU[segment]["cadrans_disponibles"]
-                        if len(options_cadran) > 1:
-                            cadran = st.selectbox(f"Structure de comptage — {nom_site}", options_cadran, key=f"cadran_{key_prefix}")
-                        else:
-                            cadran = options_cadran[0]
-                            st.caption(f"Structure de comptage : {cadran} (seule option pour {segment}).")
+    st.markdown(f"**{nom_site}**")
+    segment = st.selectbox(f"Segment tarifaire — {nom_site}", SEGMENTS_DISPONIBLES, key=f"segment_{key_prefix}")
+    options_cadran = TARIFS_BPU[segment]["cadrans_disponibles"]
+    if len(options_cadran) > 1:
+        cadran = st.selectbox(f"Structure de comptage — {nom_site}", options_cadran, key=f"cadran_{key_prefix}")
+    else:
+        cadran = options_cadran[0]
+        st.caption(f"Structure de comptage : {cadran} (seule option pour {segment}).")
 
-                        # Affichage des tarifs BPU de fourniture correspondant au segment et à la structure choisis
-                        aide_cadrans_generique = {
-                            "Base": "Tarif unique, valable à toute heure et toute saison.",
-                            "HP": "Heures Pleines (6h-22h), toutes saisons confondues.",
-                            "HC": "Heures Creuses (22h-6h), toutes saisons confondues.",
-                            "HPSh": "Heures Pleines, Saison Haute (6h-22h, novembre à mars).",
-                            "HCSh": "Heures Creuses, Saison Haute (22h-6h, novembre à mars).",
-                            "HPSb": "Heures Pleines, Saison Basse (6h-22h, avril à octobre).",
-                            "HCSb": "Heures Creuses, Saison Basse (22h-6h, avril à octobre).",
-                            "Pte": "Pointe fixe (période de forte tension sur le réseau).  Non appliquée "
-                                   "dans le calcul actuel — la plage horaire de Pointe n'est pas encore "
-                                   "définie, ces instants sont comptés comme Heures Pleines à la place.",
-                        }
-                        tarif_fourniture = TARIFS_BPU[segment]["fourniture"][cadran]
-                        cadrans_du_segment = list(tarif_fourniture.keys())
-                        col_fourniture = st.columns(len(cadrans_du_segment))
-                        for i, c in enumerate(cadrans_du_segment):
-                            with col_fourniture[i]:
-                                st.markdown(carte_indicateur(c, f"{tarif_fourniture[c]:.2f} €/MWh",
-                                    "#F5F5F5", "#616161", taille_titre=11, taille_valeur=13,
-                                    aide=aide_cadrans_generique.get(c, "")), unsafe_allow_html=True)
+    # Légende : ce que représente la fourniture, et le segment tarifaire choisi
+    aide_segments = {
+        "C5 - Bâtiments et équipements": "Segment de distribution basse tension Enedis, pour les sites à "
+            "puissance souscrite standard (bâtiments, petits/moyens équipements).",
+        "C4": "Segment de distribution basse tension Enedis, pour les sites à puissance souscrite plus "
+              "élevée que le C5.",
+        "C2": "Segment de distribution haute tension (HTA) Enedis, pour les sites à forte puissance souscrite.",
+    }
+    st.caption(f"**Fourniture** : prix de l'électricité elle-même (hors acheminement et taxes), facturé par "
+               f"Octopus Energy selon le BPU. {aide_segments.get(segment, '')}")
 
-                        if segment == "C2":
-                            st.caption(" Le tarif Pointe ci-dessus est affiché à titre informatif, mais "
-                                       "n'est pas encore pris en compte dans le calcul du prix évité (voir "
-                                       "l'infobulle du cadran « Pte »).")
+    aide_cadrans_generique = {
+        "Base": "Tarif unique, valable à toute heure et toute saison.",
+        "HP": "Heures Pleines (6h-22h), toutes saisons confondues.",
+        "HC": "Heures Creuses (22h-6h), toutes saisons confondues.",
+        "HPSh": "Heures Pleines, Saison Haute (6h-22h, novembre à mars).",
+        "HCSh": "Heures Creuses, Saison Haute (22h-6h, novembre à mars).",
+        "HPSb": "Heures Pleines, Saison Basse (6h-22h, avril à octobre).",
+        "HCSb": "Heures Creuses, Saison Basse (22h-6h, avril à octobre).",
+        "Pte": "Pointe fixe (période de forte tension sur le réseau). ⚠️ Non appliquée "
+               "dans le calcul actuel — la plage horaire de Pointe n'est pas encore "
+               "définie, ces instants sont comptés comme Heures Pleines à la place.",
+    }
+    tarif_fourniture = TARIFS_BPU[segment]["fourniture"][cadran]
+    cadrans_du_segment = list(tarif_fourniture.keys())
+    col_fourniture = st.columns(len(cadrans_du_segment))
+    for i, c in enumerate(cadrans_du_segment):
+        with col_fourniture[i]:
+            st.markdown(carte_indicateur(c, f"{tarif_fourniture[c]:.2f} €/MWh",
+                "#F5F5F5", "#616161", taille_titre=11, taille_valeur=13,
+                aide=aide_cadrans_generique.get(c, "")), unsafe_allow_html=True)
 
-                        return segment, cadran
+    if segment == "C2":
+        st.caption("⚠️ Le tarif Pointe ci-dessus est affiché à titre informatif, mais "
+                   "n'est pas encore pris en compte dans le calcul du prix évité (voir "
+                   "l'infobulle du cadran « Pte »).")
+
+    return segment, cadran
 
 def style_van(x):
     return style_indicateur(x, favorable=(not pd.isna(x) and x > 0))
