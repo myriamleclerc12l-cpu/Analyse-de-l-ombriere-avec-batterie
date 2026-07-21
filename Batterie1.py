@@ -1182,10 +1182,16 @@ if fichier_conso is not None and fichier_prod is not None:
                                        if volume_total > 0 else prix_ttc_siege)
 
                     st.markdown("##### Résultat : prix complet évité")
-                    col_p1, col_p2, col_p3 = st.columns(3)
-                    col_p1.metric("Siège", f"{prix_ttc_siege:.4f} €/kWh")
-                    col_p2.metric("Bornes", f"{prix_ttc_bornes:.4f} €/kWh")
-                    col_p3.metric("Global (pondéré)", f"{prix_ttc_moyen:.4f} €/kWh")
+                    col_p1, col_p2 = st.columns(2)
+                    with col_p1:
+                        st.markdown(carte_indicateur("Siège", f"{prix_ttc_siege:.4f} €/kWh",
+                            "#E3F2FD", "#1565C0"), unsafe_allow_html=True)
+                    with col_p2:
+                        st.markdown(carte_indicateur("Bornes", f"{prix_ttc_bornes:.4f} €/kWh",
+                            "#FFF3E0", "#E65100"), unsafe_allow_html=True)
+
+                    st.markdown(carte_indicateur("Prix moyen pondéré global (évité)", f"{prix_ttc_moyen:.4f} €/kWh",
+                        "#E8F5E9", "#2E7D32", taille_titre=14, taille_valeur=32), unsafe_allow_html=True)
 
                 # ----------------------------------------------------------------
                 # SOUS-ONGLET 2 : HYPOTHÈSES ÉCONOMIQUES
