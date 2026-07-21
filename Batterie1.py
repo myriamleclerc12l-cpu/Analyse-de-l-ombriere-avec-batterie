@@ -1215,32 +1215,30 @@ if fichier_conso is not None and fichier_prod is not None:
                     st.markdown("##### Fourniture — BPU Octopus Energy 2026")
                     SEGMENTS_DISPONIBLES = ["C5 - Bâtiments et équipements", "C4", "C2"]
 
-
                     col_t1, col_t2 = st.columns(2)
-                    
                     with col_t1:
                         segment_siege, cadran_siege = choisir_segment_et_cadran("Siège", "siege")
                     with col_t2:
                         segment_bornes, cadran_bornes = choisir_segment_et_cadran("Bornes de recharge", "bornes")
-                        
+
+                    aide_cadrans_generique = {
+                        "Base": "Tarif unique, valable à toute heure et toute saison.",
+                        "HP": "Heures Pleines (6h-22h), toutes saisons confondues.",
+                        "HC": "Heures Creuses (22h-6h), toutes saisons confondues.",
+                        "HPSh": "Heures Pleines, Saison Haute (6h-22h, novembre à mars).",
+                        "HCSh": "Heures Creuses, Saison Haute (22h-6h, novembre à mars).",
+                        "HPSb": "Heures Pleines, Saison Basse (6h-22h, avril à octobre).",
+                        "HCSb": "Heures Creuses, Saison Basse (22h-6h, avril à octobre).",
+                        "Pte": "Pointe fixe (période de forte tension sur le réseau). ⚠️ Non appliquée "
+                               "dans le calcul actuel — la plage horaire de Pointe n'est pas encore "
+                               "définie, ces instants sont comptés comme Heures Pleines à la place.",
+                    }
+
                     with st.expander("Détail Fourniture (BPU) par segment tarifaire"):
                         st.caption("Prix de l'électricité elle-même (hors acheminement et taxes), facturé "
                                    "par Octopus Energy selon le BPU — un bloc par combinaison segment/"
                                    "structure réellement utilisée (regroupé si Siège et Bornes partagent "
                                    "la même).")
-
-                        aide_cadrans = {
-                            "Base": "Tarif unique, valable à toute heure et toute saison.",
-                            "HP": "Heures Pleines (6h-22h), toutes saisons confondues.",
-                            "HC": "Heures Creuses (22h-6h), toutes saisons confondues.",
-                            "HPSh": "Heures Pleines, Saison Haute (6h-22h, novembre à mars).",
-                            "HCSh": "Heures Creuses, Saison Haute (22h-6h, novembre à mars).",
-                            "HPSb": "Heures Pleines, Saison Basse (6h-22h, avril à octobre).",
-                            "HCSb": "Heures Creuses, Saison Basse (22h-6h, avril à octobre).",
-                            "Pte": "Pointe fixe (période de forte tension sur le réseau). ⚠️ Non appliquée "
-                                   "dans le calcul actuel — la plage horaire de Pointe n'est pas encore "
-                                   "définie, ces instants sont comptés comme Heures Pleines à la place.",
-                        }
 
                         combinaisons_fourniture = {}
                         for nom_site, segment, cadran in [("Siège", segment_siege, cadran_siege),
@@ -1257,20 +1255,23 @@ if fichier_conso is not None and fichier_prod is not None:
                                 with col_fourniture[i]:
                                     st.markdown(carte_indicateur(c, f"{tarif_fourniture[c]:.2f} €/MWh",
                                         "#F5F5F5", "#616161", taille_titre=11, taille_valeur=13,
-                                        aide=aide_cadrans.get(c, "")), unsafe_allow_html=True)
+                                        aide=aide_cadrans_generique.get(c, "")), unsafe_allow_html=True)
                             if segment == "C2":
                                 st.caption("⚠️ Le tarif Pointe ci-dessus est affiché à titre informatif, mais "
                                            "n'est pas encore pris en compte dans le calcul du prix évité "
                                            "(voir l'infobulle du cadran « Pte »).")
-                        
-                        
-                        
+
+                    with st.expander("Détail Acheminement (TURPE) et composantes fixes du BPU"):
+                        st.markdown("**TURPE (€/kWh)**")
+                        st.caption("Tarif d'Utilisation des Réseaux Publics d'Électricité : rémunère Enedis "
+                                   "pour l'usage du réseau de distribution. Fixé par la CRE, pas par le "
+                                   "fournisseur — s'ajoute au prix de fourniture, quel que soit le fournisseur.")
                         col_turpe = st.columns(4)
                         for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
                             with col_turpe[i]:
                                 st.markdown(carte_indicateur(cadran, f"{TARIFS_TURPE[cadran]:.5f}",
                                     "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
-                                    aide=aide_cadrans[cadran]), unsafe_allow_html=True)
+                                    aide=aide_cadrans_generique[cadran]), unsafe_allow_html=True)
 
                         st.markdown("**Composantes fixes du BPU**")
                         col_fix1, col_fix2 = st.columns(2)
@@ -1288,7 +1289,6 @@ if fichier_conso is not None and fichier_prod is not None:
                                      "aux fournisseurs de financer des actions de réduction de consommation, "
                                      "répercutée sur le prix de vente. Coût additionnel fixe, toujours inclus."
                                 ), unsafe_allow_html=True)
-
 
                     turpe_dict = TARIFS_TURPE
                     
