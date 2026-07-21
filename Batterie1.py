@@ -418,13 +418,10 @@ def carte_indicateur(titre, valeur, couleur_fond, couleur_accent, taille_titre=1
     </div>
     """
 
-
 def style_indicateur(x, favorable=False):
-    if pd.isna(x):
-        return "background-color: #F5F5F5; color: #9E9E9E"
     if favorable:
         return "background-color: #C6EFCE; color: #006100; font-weight: 600"
-    return "background-color: #EDEDED"
+    return ""
 
 def style_van(x):
     return style_indicateur(x, favorable=(not pd.isna(x) and x > 0))
