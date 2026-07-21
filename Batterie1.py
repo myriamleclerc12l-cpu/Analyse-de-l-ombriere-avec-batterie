@@ -1295,8 +1295,33 @@ if fichier_conso is not None and fichier_prod is not None:
 
                     st.dataframe(df_eco.style.format({
                         "CAPEX (€)": fmt_eur0, "VAN (€)": fmt_eur0, "TRI (%)": fmt_num1,
-                        "LCOS (€/kWh)": fmt_num3, "Payback (années)": fmt_num1, "Ratio B/C": fmt_num2,
-                    }))
+                        "LCOE (€/kWh)": fmt_num3, "TRB (année)": fmt_num1, "Ratio B/C": fmt_num2,
+                    }), column_config={
+                        "Capacité (kWh)": st.column_config.Column(
+                            help="Taille de la batterie testée, de 0 à 300 kWh par pas de 5 kWh."
+                        ),
+                        "CAPEX (€)": st.column_config.Column(
+                            help="Investissement initial pour cette capacité : coût unitaire (€/kWh) × capacité + coûts fixes d'installation."
+                        ),
+                        "VAN (€)": st.column_config.Column(
+                            help="Valeur Actuelle Nette : somme des flux de trésorerie futurs actualisés, moins l'investissement initial. "
+                                 "Positive = le projet crée de la valeur au taux d'actualisation retenu."
+                        ),
+                        "TRI (%)": st.column_config.Column(
+                            help="Taux de Rentabilité Interne : le taux d'actualisation pour lequel la VAN serait nulle. "
+                                 "Le rendement annuel moyen implicite du projet."
+                        ),
+                        "LCOE (€/kWh)": st.column_config.Column(
+                            help="Coût actualisé moyen de chaque kWh délivré par la batterie sur sa durée de vie (LCOE/LCOS). "
+                                 "À comparer au prix d'achat évité : plus bas = plus rentable."
+                        ),
+                        "TRB (années)": st.column_config.Column(
+                            help="Temps de retour brut (non actualisé) : nombre d'années pour que les flux cumulés redeviennent positifs."
+                        ),
+                        "Ratio B/C": st.column_config.Column(
+                            help="Ratio Bénéfice/Coût : recettes actualisées ÷ coûts actualisés. Supérieur à 1 = rentable."
+                        ),
+                    })
 
                 # ----------------------------------------------------------------
                 # SOUS-ONGLET 4 : DÉTAIL (FORMAT ENOLAB)
