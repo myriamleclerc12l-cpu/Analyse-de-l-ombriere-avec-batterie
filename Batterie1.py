@@ -427,7 +427,7 @@ def style_van(x):
     return style_indicateur(x, favorable=(not pd.isna(x) and x > 0))
 
 def style_tri(x):
-    return style_indicateur(x, favorable=(not pd.isna(x) and x > 0))
+    return style_indicateur(x, favorable=(not pd.isna(x) and x > 4))
 
 def style_ratio_bc(x):
     return style_indicateur(x, favorable=(not pd.isna(x) and x > 1))
