@@ -435,6 +435,7 @@ def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_a
             "Economie nette (€)": economie_nette, "Flux cumulés (€)": flux_cumule,
         })
     return pd.DataFrame(lignes)
+
 def carte_indicateur(titre, valeur, couleur_fond, couleur_accent, taille_titre=12, taille_valeur=20, aide=None):
     titre_html = titre
     if aide:
@@ -447,6 +448,7 @@ def carte_indicateur(titre, valeur, couleur_fond, couleur_accent, taille_titre=1
         <div style="font-size: {taille_valeur}px; color: {couleur_accent}; font-weight: 700; margin-top: 4px;">{valeur}</div>
     </div>
     """
+    
 def style_indicateur(x, favorable=False):
     if favorable:
         return "background-color: #C6EFCE; color: #006100; font-weight: 600"
@@ -1325,6 +1327,13 @@ if fichier_conso is not None and fichier_prod is not None:
                 # SOUS-ONGLET 3 : COMPARAISON DES CAPACITÉS
                 # ----------------------------------------------------------------
                 with sous_tab3:
+                    st.caption(" Le prix utilisé ici pour valoriser le gain net est pondéré par la "
+                               "consommation totale du site (identique au sous-onglet « Tarification »), "
+                               "pas par les instants précis où la batterie décharge — recalculer ce prix "
+                               "pour chacune des ~100 capacités testées serait trop coûteux ici. Pour une "
+                               "valorisation plus précise (pondérée par la décharge réelle), voir le "
+                               "sous-onglet « 4. Bilan Financier », qui l'applique à la capacité choisie "
+                               "individuellement.")
                     resultats_eco = []
                     for _, row in df_res_t4.iterrows():
                         cap = row["Capacité (kWh)"]
