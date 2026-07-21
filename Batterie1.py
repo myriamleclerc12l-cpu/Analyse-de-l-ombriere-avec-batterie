@@ -182,17 +182,22 @@ def trouver_capacite_ideale(df_res, type_methode, param):
     """
     caps = df_res["Capacité (kWh)"].values.astype(float)
     gains = df_res["Gain Énergétique (kWh)"].values.astype(float)
-    
-    # Gestion du TAP selon la structure du dataframe (Onglet 3 ou Onglet 4)
+
     if "TAP (%)" in df_res.columns:
         taps = df_res["TAP (%)"].values.astype(float)
     elif "TAP global (%)" in df_res.columns:
         taps = df_res["TAP global (%)"].values.astype(float)
     else:
-        taps = np.zeros_like(caps) # Fallback sécurisé
+        taps = np.zeros_like(caps)
+
+    if "TAC (%)" in df_res.columns:
+        tacs = df_res["TAC (%)"].values.astype(float)
+    elif "TAC global (%)" in df_res.columns:
+        tacs = df_res["TAC global (%)"].values.astype(float)
+    else:
+        tacs = np.zeros_like(caps)
 
     if type_methode == "kneedle":
-        # Méthode Kneedle : Recherche de la distance max entre la courbe et la corde
         x_norm = (caps - caps.min()) / (caps.max() - caps.min()) if caps.max() > caps.min() else caps
         y_norm = (gains - gains.min()) / (gains.max() - gains.min()) if gains.max() > gains.min() else gains
         x1, y1, x2, y2 = x_norm[0], y_norm[0], x_norm[-1], y_norm[-1]
@@ -204,22 +209,24 @@ def trouver_capacite_ideale(df_res, type_methode, param):
         return caps[0]
 
     elif type_methode == "plateau_gain":
-        # Atteindre X% du gain max
         seuil = gains.max() * param
         idx = int(np.argmax(gains >= seuil))
         return caps[idx]
 
     elif type_methode == "marginal_abs":
-        # Gain marginal sous un seuil absolu
         for i in range(1, len(caps)):
             if (gains[i] - gains[i - 1]) < param:
                 return caps[i - 1]
         return caps[-1]
 
     elif type_methode == "plateau_tap":
-        # Atteindre X% du TAP max possible
         seuil = taps.max() * param
         idx = int(np.argmax(taps >= seuil))
+        return caps[idx]
+
+    elif type_methode == "tac_cible":
+        seuil = param * 100
+        idx = int(np.argmax(tacs >= seuil))
         return caps[idx]
 
 def classer_cadran(timestamp, structure_cadran):
@@ -1022,6 +1029,10 @@ if fichier_conso is not None and fichier_prod is not None:
                         "Gain marginal < 200 kWh (pour chaque ajout de 5 kWh)": ("marginal_abs", 200),
                         "Gain marginal < 100 kWh (pour chaque ajout de 5 kWh)": ("marginal_abs", 100),
                         "Gain marginal < 50 kWh (pour chaque ajout de 5 kWh)": ("marginal_abs", 50),
+                        "Atteindre un TAC de 99 %": ("tac_cible", 0.99),
+                        "Atteindre un TAC de 95 %": ("tac_cible", 0.95),
+                        "Atteindre un TAC de 90 %": ("tac_cible", 0.90),
+                        "Atteindre un TAC de 80 %": ("tac_cible", 0.80),
                         "Atteindre le plateau à 90 % du TAP maximal possible": ("plateau_tap", 0.90),
                         "Atteindre le plateau à 95 % du TAP maximal possible": ("plateau_tap", 0.95),
                     }
@@ -1030,34 +1041,48 @@ if fichier_conso is not None and fichier_prod is not None:
 
 # Texte affiché au survol du petit "?" à côté de chaque case
                     aide_methodes = {
-    "Coude géométrique de rentabilité":
-        "Détecte automatiquement le point d'inflexion (le « coude ») de la courbe de gain : "
-        "la capacité où l'écart entre la courbe et la droite reliant le premier et le dernier "
-        "point testés (0 et 500 kWh) est maximal. Méthode géométrique (Kneedle), sans seuil à choisir.",
-    "Atteindre le plateau à 90 % du gain net maximal":
-        "Retient la plus petite capacité testée qui atteint déjà 90 % du gain énergétique "
-        "maximal observé sur toute la plage testée (0 à 500 kWh).",
-    "Atteindre le plateau à 95 % du gain net maximal":
-        "Même principe que l'option 90 %, avec un seuil plus exigeant : 95 % du gain "
-        "énergétique maximal possible.",
-    "Gain marginal < 200 kWh (pour chaque ajout de 5 kWh)":
-        "Parcourt les capacités testées par palier de 5 kWh et retient la dernière capacité "
-        "pour laquelle le palier suivant apportait encore au moins 200 kWh de gain annuel. "
-        "Dès qu'un palier rapporte moins que ce seuil, l'algorithme s'arrête et garde la capacité juste avant.",
-    "Gain marginal < 100 kWh (pour chaque ajout de 5 kWh)":
-        "Parcourt les capacités testées par palier de 5 kWh et retient la dernière capacité "
-        "pour laquelle le palier suivant apportait encore au moins 100 kWh de gain annuel. "
-        "Dès qu'un palier rapporte moins que ce seuil, l'algorithme s'arrête et garde la capacité juste avant.",
-    "Gain marginal < 50 kWh (pour chaque ajout de 5 kWh)":
-        "Parcourt les capacités testées par palier de 5 kWh et retient la dernière capacité "
-        "pour laquelle le palier suivant apportait encore au moins 50kWh de gain annuel. "
-        "Dès qu'un palier rapporte moins que ce seuil, l'algorithme s'arrête et garde la capacité juste avant.Conduit généralement à une capacité recommandée plus élevée que les deux options précédentes. ",
-    "Atteindre le plateau à 90 % du TAP maximal possible":
-        "Retient la plus petite capacité testée qui atteint déjà 90 % du Taux d'Autoproduction "
-        "(TAP) maximal observé sur toute la plage testée.",
-    "Atteindre le plateau à 95 % du TAP maximal possible":
-        "Même principe que l'option 90 %, avec un seuil plus exigeant : 95 % du TAP "
-        "maximal possible.",
+                        "Coude géométrique de rentabilité":
+                            "Détecte automatiquement le point d'inflexion (le « coude ») de la courbe de gain : "
+                            "la capacité où l'écart entre la courbe et la droite reliant le premier et le dernier "
+                            "point testés (0 et 500 kWh) est maximal. Méthode géométrique (Kneedle), sans seuil à choisir.",
+                        "Atteindre le plateau à 90 % du gain net maximal":
+                            "Retient la plus petite capacité testée qui atteint déjà 90 % du gain énergétique "
+                            "maximal observé sur toute la plage testée (0 à 500 kWh).",
+                        "Atteindre le plateau à 95 % du gain net maximal":
+                            "Même principe que l'option 90 %, avec un seuil plus exigeant : 95 % du gain "
+                            "énergétique maximal possible.",
+                        "Gain marginal < 200 kWh (pour chaque ajout de 5 kWh)":
+                            "Parcourt les capacités testées par palier de 5 kWh et retient la dernière capacité "
+                            "pour laquelle le palier suivant apportait encore au moins 200 kWh de gain annuel. "
+                            "Dès qu'un palier rapporte moins que ce seuil, l'algorithme s'arrête et garde la capacité juste avant.",
+                        "Gain marginal < 100 kWh (pour chaque ajout de 5 kWh)":
+                            "Parcourt les capacités testées par palier de 5 kWh et retient la dernière capacité "
+                            "pour laquelle le palier suivant apportait encore au moins 100 kWh de gain annuel. "
+                            "Dès qu'un palier rapporte moins que ce seuil, l'algorithme s'arrête et garde la capacité juste avant.",
+                        "Gain marginal < 50 kWh (pour chaque ajout de 5 kWh)":
+                            "Parcourt les capacités testées par palier de 5 kWh et retient la dernière capacité "
+                            "pour laquelle le palier suivant apportait encore au moins 50kWh de gain annuel. "
+                            "Dès qu'un palier rapporte moins que ce seuil, l'algorithme s'arrête et garde la capacité juste avant."
+                            "Conduit généralement à une capacité recommandée plus élevée que les deux options précédentes. ",
+                        "Atteindre un TAC de 99 %":
+                            "Retient la plus petite capacité testée pour laquelle le Taux d'Autoconsommation "
+                            "(TAC) atteint réellement 99 % — une valeur cible absolue, pas relative à un maximum "
+                            "observé. Le seuil le plus strict des quatre, conduit à la capacité recommandée la "
+                            "plus élevée de ce groupe. Si aucune capacité testée n'atteint 99 %, retient la plus "
+                            "petite capacité (0 kWh) par défaut.",
+                        "Atteindre un TAC de 95 %":
+                            "Même principe, cible un TAC de 95 % exactement.",
+                        "Atteindre un TAC de 90 %":
+                            "Même principe, cible un TAC de 90 % exactement.",
+                        "Atteindre un TAC de 80 %":
+                            "Même principe, cible un TAC de 80 % exactement — le plus souple des quatre, "
+                            "conduit généralement à la capacité recommandée la plus faible de ce groupe.",
+                        "Atteindre le plateau à 90 % du TAP maximal possible":
+                            "Retient la plus petite capacité testée qui atteint déjà 90 % du Taux d'Autoproduction "
+                            "(TAP) maximal observé sur toute la plage testée.",
+                        "Atteindre le plateau à 95 % du TAP maximal possible":
+                            "Même principe que l'option 90 %, avec un seuil plus exigeant : 95 % du TAP "
+                            "maximal possible.",
                     }
 
 
