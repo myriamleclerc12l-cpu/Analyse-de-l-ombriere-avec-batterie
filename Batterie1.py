@@ -410,7 +410,7 @@ def calculer_flux_et_indicateurs(gain_net_kwh_an1, capex, opex_annuel_an1, prix_
 
 def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_an1, prix_moyen_ttc_an1,
                               taux_inflation_energie, revenu_producteur_an1, taux_inflation_revenu_producteur,
-                              duree_vie_ans, degradation_pct_an=0.0):
+                              duree_vie_ans, degradation_pct_an=0.0, prix_vente_reseau=0.0):
     lignes = [{
         "Année": "A0", "CAPEX (€ HT)": -capex, "OPEX (€ HT)": np.nan,
         "Énergie autoconsommée (kWh)": np.nan,
@@ -423,7 +423,8 @@ def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_a
         opex = -opex_an1 * (1 + taux_inflation_opex) ** (annee - 1)
         gain_kwh = gain_net_kwh_an1 * facteur_degradation
         prix_ttc = prix_moyen_ttc_an1 * (1 + taux_inflation_energie) ** (annee - 1)
-        economie_aci = gain_kwh * prix_ttc
+        marge = prix_ttc - prix_vente_reseau
+        economie_aci = gain_kwh * marge
         revenu_producteur = -revenu_producteur_an1 * (1 + taux_inflation_revenu_producteur) ** (annee - 1)
         economie_nette = economie_aci + revenu_producteur + opex
         flux_cumule += economie_nette
@@ -434,7 +435,6 @@ def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_a
             "Economie nette (€)": economie_nette, "Flux cumulés (€)": flux_cumule,
         })
     return pd.DataFrame(lignes)
-
 def carte_indicateur(titre, valeur, couleur_fond, couleur_accent, taille_titre=12, taille_valeur=20, aide=None):
     titre_html = titre
     if aide:
