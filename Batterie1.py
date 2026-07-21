@@ -1219,13 +1219,19 @@ if fichier_conso is not None and fichier_prod is not None:
 
 
                     turpe_dict = TARIFS_TURPE
-
+                    
                     st.markdown("##### Taxes")
                     col_t4, col_t5 = st.columns(2)
-                    col_t4.metric("Accise électricité", f"{ACCISE_EUR_KWH:.4f} €/kWh",
-                        help="taxe qui s’ajoute sur les factures d’électricité des usagers en France. Elle est notamment destinée à dédommager les opérateurs des divers surcoûts qu’ils supportent et à financer les politiques de soutien aux énergies renouvelables.")
+                    with col_t4:
+                        st.markdown(carte_indicateur("Accise électricité", f"{ACCISE_EUR_KWH:.4f} €/kWh",
+                            "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
+                            aide="taxe qui s’ajoute sur les factures d’électricité des usagers en France. "
+                            "Elle est notamment destinée à dédommager les opérateurs des divers surcoûts qu’ils supportent et à financer "
+                            "les politiques de soutien aux énergies renouvelables."
+                            ), unsafe_allow_html=True)
                     taux_tva = col_t5.number_input("TVA (%)", min_value=0.0, max_value=25.0, value=20.0, step=0.1,
                         key="taux_tva_input") / 100.0
+
                     accise_eur_mwh = ACCISE_EUR_KWH * 1000.0
 
                     dt_actuel = (df.index[1] - df.index[0]).total_seconds() / 3600.0
