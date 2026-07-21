@@ -1311,39 +1311,39 @@ if fichier_conso is not None and fichier_prod is not None:
 
                     turpe_dict = TARIFS_TURPE
                     
-                    st.markdown("##### Calendrier Heures Pleines / Heures Creuses")
-                    st.caption("Détermine comment chaque instant de vos données est classé dans son cadran "
-                               "tarifaire — à ajuster selon votre contrat Enedis réel.")
+                    with st.expander("Calendrier Heures Pleines / Heures Creuses"):
+                        st.caption("Détermine comment chaque instant de vos données est classé dans son cadran "
+                                   "tarifaire — à ajuster selon votre contrat Enedis réel.")
 
-                    mois_labels = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août",
-                                   "Septembre","Octobre","Novembre","Décembre"]
-                    mois_numeros = {label: i + 1 for i, label in enumerate(mois_labels)}
-                    mois_defaut_haute = ["Novembre","Décembre","Janvier","Février","Mars"]
+                        mois_labels = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août",
+                                       "Septembre","Octobre","Novembre","Décembre"]
+                        mois_numeros = {label: i + 1 for i, label in enumerate(mois_labels)}
+                        mois_defaut_haute = ["Novembre","Décembre","Janvier","Février","Mars"]
 
-                    col_cal1, col_cal2 = st.columns(2)
-                    with col_cal1:
-                        mois_saison_haute_labels = st.multiselect("Mois en Saison Haute (hiver)", mois_labels,
-                            default=mois_defaut_haute, key="mois_saison_haute")
-                    with col_cal2:
-                        mois_saison_basse_affichage = [m for m in mois_labels if m not in mois_saison_haute_labels]
-                        st.caption("Mois en Saison Basse (été), déduits automatiquement :")
-                        st.write(", ".join(mois_saison_basse_affichage) if mois_saison_basse_affichage else "Aucun")
+                        col_cal1, col_cal2 = st.columns(2)
+                        with col_cal1:
+                            mois_saison_haute_labels = st.multiselect("Mois en Saison Haute (hiver)", mois_labels,
+                                default=mois_defaut_haute, key="mois_saison_haute")
+                        with col_cal2:
+                            mois_saison_basse_affichage = [m for m in mois_labels if m not in mois_saison_haute_labels]
+                            st.caption("Mois en Saison Basse (été), déduits automatiquement :")
+                            st.write(", ".join(mois_saison_basse_affichage) if mois_saison_basse_affichage else "Aucun")
 
-                    mois_saison_haute_num = tuple(mois_numeros[m] for m in mois_saison_haute_labels)
+                        mois_saison_haute_num = tuple(mois_numeros[m] for m in mois_saison_haute_labels)
 
-                    col_hc1, col_hc2 = st.columns(2)
-                    with col_hc1:
-                        st.markdown("**Heures Creuses — Saison Haute (hiver)**")
-                        heure_debut_hc_haute = st.number_input("Début (h)", min_value=0, max_value=23, value=22,
-                            key="hc_debut_haute")
-                        heure_fin_hc_haute = st.number_input("Fin (h)", min_value=0, max_value=23, value=6,
-                            key="hc_fin_haute")
-                    with col_hc2:
-                        st.markdown("**Heures Creuses — Saison Basse (été)**")
-                        heure_debut_hc_basse = st.number_input("Début (h)", min_value=0, max_value=23, value=22,
-                            key="hc_debut_basse")
-                        heure_fin_hc_basse = st.number_input("Fin (h)", min_value=0, max_value=23, value=6,
-                            key="hc_fin_basse")
+                        col_hc1, col_hc2 = st.columns(2)
+                        with col_hc1:
+                            st.markdown("**Heures Creuses — Saison Haute (hiver)**")
+                            heure_debut_hc_haute = st.number_input("Début (h)", min_value=0, max_value=23, value=22,
+                                key="hc_debut_haute")
+                            heure_fin_hc_haute = st.number_input("Fin (h)", min_value=0, max_value=23, value=6,
+                                key="hc_fin_haute")
+                        with col_hc2:
+                            st.markdown("**Heures Creuses — Saison Basse (été)**")
+                            heure_debut_hc_basse = st.number_input("Début (h)", min_value=0, max_value=23, value=22,
+                                key="hc_debut_basse")
+                            heure_fin_hc_basse = st.number_input("Fin (h)", min_value=0, max_value=23, value=6,
+                                key="hc_fin_basse")
                     
                     st.markdown("##### Taxes")
                     col_t4, col_t5 = st.columns(2)
