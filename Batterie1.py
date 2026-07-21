@@ -1223,20 +1223,39 @@ if fichier_conso is not None and fichier_prod is not None:
                         
                     with st.expander("Détail Acheminement (TURPE) et composantes fixes du BPU"):
                         st.markdown("**TURPE (€/kWh)**")
+                        st.caption("Tarif d'Utilisation des Réseaux Publics d'Électricité : rémunère Enedis "
+                                   "pour l'usage du réseau de distribution. Fixé par la CRE, pas par le "
+                                   "fournisseur — s'ajoute au prix de fourniture, quel que soit le fournisseur.")
+
+                        aide_cadrans = {
+                            "HPSh": "Heures Pleines, Saison Haute (6h-22h, novembre à mars) — le cadran le plus cher des quatre.",
+                            "HCSh": "Heures Creuses, Saison Haute (22h-6h, novembre à mars).",
+                            "HPSb": "Heures Pleines, Saison Basse (6h-22h, avril à octobre).",
+                            "HCSb": "Heures Creuses, Saison Basse (22h-6h, avril à octobre) — le cadran le moins cher des quatre.",
+                        }
                         col_turpe = st.columns(4)
                         for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
                             with col_turpe[i]:
                                 st.markdown(carte_indicateur(cadran, f"{TARIFS_TURPE[cadran]:.5f}",
-                                    "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14), unsafe_allow_html=True)
+                                    "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
+                                    aide=aide_cadrans[cadran]), unsafe_allow_html=True)
 
                         st.markdown("**Composantes fixes du BPU**")
                         col_fix1, col_fix2 = st.columns(2)
                         with col_fix1:
                             st.markdown(carte_indicateur("Garanties d'Origine (GO)", f"{PRIX_GO:.2f} €/MWh",
-                                "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14), unsafe_allow_html=True)
+                                "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
+                                aide="Certificat attestant que l'électricité fournie provient de sources "
+                                     "renouvelables. Coût additionnel fixe (indépendant du cadran horaire), "
+                                     "toujours inclus dans le calcul du prix évité."
+                                ), unsafe_allow_html=True)
                         with col_fix2:
                             st.markdown(carte_indicateur("Obligations CEE", f"{PRIX_CEE:.2f} €/MWh",
-                                "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14), unsafe_allow_html=True)
+                                "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
+                                aide="Certificats d'Économies d'Énergie : obligation réglementaire imposée "
+                                     "aux fournisseurs de financer des actions de réduction de consommation, "
+                                     "répercutée sur le prix de vente. Coût additionnel fixe, toujours inclus."
+                                ), unsafe_allow_html=True)
 
 
                     turpe_dict = TARIFS_TURPE
