@@ -542,26 +542,26 @@ fichier_prod = st.sidebar.file_uploader("Production PV - Ombrière", type=["csv"
 
 
 if fichier_conso is not None and fichier_prod is not None:
-       st.sidebar.success("Fichiers réels chargés.")
-       df_complet = charger_donnees_reelles(fichier_conso, fichier_prod, fichier_bornes)
+        st.sidebar.success("Fichiers réels chargés.")
+        df_complet = charger_donnees_reelles(fichier_conso, fichier_prod, fichier_bornes)
     
     # --- Sélection de la période ---
     # --- Sélection de la période ---
-       date_min = df_complet.index.min().date()
-       date_max = df_complet.index.max().date()
+        date_min = df_complet.index.min().date()
+        date_max = df_complet.index.max().date()
 
-       tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Simulation Temporelle Courte Durée",
         "Simulation Temporelle Longue Durée",
         "Gain de la Batterie",
         "Analyse Annuelle",
         "Analyse Économique"
-       ])
+        ])
 
     # ----------------------------------------------------
     # ONGLET 1 : Simulation Temporelle
     # ----------------------------------------------------
-       with tab1:
+        with tab1:
         
             st.markdown("---")
             st.header("Simulation temporelle courte durée (< 1 mois) ")
