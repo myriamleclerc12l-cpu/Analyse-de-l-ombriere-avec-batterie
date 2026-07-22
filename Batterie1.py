@@ -922,20 +922,21 @@ if fichier_conso is not None and fichier_prod is not None:
 
             # --- KPIs sur la période complète (calculés à pleine résolution, inchangés) ---
             st.subheader("Performances du système sur la période")
-            col_kpi1_ld, col_kpi2_ld, col_kpi3_ld = st.columns(3)
+            col_kpi1_ld, col_kpi2_ld, col_kpi3_ld, col_kpi4_ld = st.columns(4)
 
             conso_totale_ld = df_simu_ld["conso_kW"].sum() * dt_ld
             prod_totale_ld = df_simu_ld["prod_kW"].sum() * dt_ld
             export_totale_ld = df_simu_ld["Export_Reseau_kW"].sum() * dt_ld
             autoconso_totale_ld = df_simu_ld["Autoconso_Totale_kW"].sum() * dt_ld
 
-            # Référence : autoconsommation SANS batterie (autoconsommation directe uniquement)
             autoconso_sans_bat_ld = np.minimum(df_simu_ld["conso_kW"], df_simu_ld["prod_kW"]).sum() * dt_ld
             gain_net_ld = max(0, autoconso_totale_ld - autoconso_sans_bat_ld)
 
             energie_pv_valorisee_ld = prod_totale_ld - export_totale_ld
             tac_ld = (energie_pv_valorisee_ld / prod_totale_ld * 100) if prod_totale_ld > 0 else 0
             tap_ld = (autoconso_totale_ld / conso_totale_ld * 100) if conso_totale_ld > 0 else 0
+
+            cycles_periode_ld = (gain_net_ld / capacite_batterie_ld) if capacite_batterie_ld > 0 else 0.0
 
             with col_kpi1_ld:
                 st.markdown(carte_indicateur("Taux d'Autoconso. (TAC)", f"{tac_ld:.1f} %",
@@ -949,6 +950,14 @@ if fichier_conso is not None and fichier_prod is not None:
                     aide=f"Gain net apporté par la batterie par rapport à une installation sans stockage, "
                          f"qui autoconsommerait naturellement {autoconso_sans_bat_ld:.1f} kWh sur cette période."
                     ), unsafe_allow_html=True)
+            with col_kpi4_ld:
+                st.markdown(carte_indicateur("Cycles sur la période", f"{cycles_periode_ld:.1f}",
+                    "#F3E5F5", "#6A1B9A",
+                    aide="Cycles équivalents pleine charge réalisés sur la période sélectionnée : "
+                         "énergie déchargée par la batterie ÷ capacité. Pas d'extrapolation annuelle — "
+                         "c'est le nombre réel sur les dates choisies en haut de l'onglet."
+                    ), unsafe_allow_html=True)
+        
                 
             st.markdown("---")
             st.subheader("Comparaison des courbes de charge (pics quotidiens)")
