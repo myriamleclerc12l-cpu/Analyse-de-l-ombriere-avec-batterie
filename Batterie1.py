@@ -501,7 +501,8 @@ def style_payback(x):
 def generer_pdf_enolab(df_enolab, capacite_etude, capex, tri_texte, lcos_texte, payback_texte, valorisation_texte):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=1.2*cm, bottomMargin=1.2*cm,
-                             leftMargin=1.2*cm, rightMargin=1.2*cm)
+                             leftMargin=1.2*cm, rightMargin=1.2*cm,
+                             title=f"Bilan financier — Batterie {capacite_etude:.0f} kWh")
     styles = getSampleStyleSheet()
     elements = []
 
@@ -591,7 +592,8 @@ def generer_png_enolab(df_enolab, capacite_etude, capex, tri_texte, lcos_texte, 
             table[i, idx_flux].set_facecolor(couleur)
 
     buffer = io.BytesIO()
-    plt.savefig(buffer, format="png", dpi=200, bbox_inches="tight")
+    plt.savefig(buffer, format="png", dpi=200, bbox_inches="tight",
+                metadata={"Title": f"Bilan financier — Batterie {capacite_etude:.0f} kWh"})
     plt.close(fig)
     buffer.seek(0)
     return buffer
@@ -954,8 +956,7 @@ if fichier_conso is not None and fichier_prod is not None:
                 st.markdown(carte_indicateur("Cycles sur la période", f"{cycles_periode_ld:.1f}",
                     "#F3E5F5", "#6A1B9A",
                     aide="Cycles équivalents pleine charge réalisés sur la période sélectionnée : "
-                         "énergie déchargée par la batterie ÷ capacité. Pas d'extrapolation annuelle — "
-                         "c'est le nombre réel sur les dates choisies en haut de l'onglet."
+                         "énergie déchargée par la batterie ÷ capacité."
                     ), unsafe_allow_html=True)
         
                 
