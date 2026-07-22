@@ -641,6 +641,8 @@ TARIFS_TURPE = {
     "HCSb": 0.04210,  # €/kWh — Heures Creuses Saison Basse
 }
 
+DUREE_VIE_MAX_ANS = 25  # limite réaliste (durée de vie calendaire), même si le cycle life théorique calculé est plus long
+
 ACCISE_EUR_KWH = 0.03085  # €/kWh 
 # ==========================================
 # 2. INTERFACE STREAMLIT
@@ -1152,14 +1154,20 @@ if fichier_conso is not None and fichier_prod is not None:
                             energie_pv_valorisee_t4 = prod_tot_t4 - export_tot_t4
                             tac_val_t4 = (energie_pv_valorisee_t4 / prod_tot_t4 * 100) if prod_tot_t4 > 0 else 0
                             tap_val_t4 = (autoconso_tot_t4 / conso_tot_t4 * 100) if conso_tot_t4 > 0 else 0
+                            
+                            
+                            cycles_par_an_t4 = (gain_batterie_t4 / cap) if cap > 0 else 0.0
 
                             resultats_t4.append({
                                 "Capacité (kWh)": cap,
                                 "Autoconso Totale (kWh)": autoconso_tot_t4,
                                 "Gain Énergétique (kWh)": gain_batterie_t4,
+                                "Cycles par an": cycles_par_an_t4,
                                 "TAP (%)": tap_val_t4,
                                 "TAC (%)": tac_val_t4
                             })
+
+                            
 
                         df_resultats_t4 = pd.DataFrame(resultats_t4)
 
@@ -1506,12 +1514,34 @@ if fichier_conso is not None and fichier_prod is not None:
                     with st.container(border=True):
                         st.markdown("##### Investissement")
                         col_e1, col_e2, col_e3 = st.columns(3)
+                        
                         capex_unitaire = col_e1.number_input("Coût unitaire batterie (€/kWh)", min_value=0.0,
                             value=400.0, step=10.0, key="capex_unitaire_input")
                         capex_fixe = col_e2.number_input("Coûts fixes d'installation (€)", min_value=0.0,
                             value=15000.0, step=500.0, key="capex_fixe_input")
-                        duree_vie_ans = int(col_e3.number_input("Durée de vie (années)", min_value=1, max_value=30,
-                            value=15, step=1, key="duree_vie_input"))
+                        nombre_cycles_nominal = col_e3.number_input("Nombre de cycles nominal (garantie fabricant)",
+                            min_value=100, max_value=20000, value=6000, step=100, key="nombre_cycles_input",
+                            help= "**Comment :** cycles/an = énergie déchargée sur l'année (kWh) ÷ capacité de la "
+                                "batterie (kWh). C'est la méthode des « cycles équivalents pleine charge » : "
+                                "chaque petite décharge compte comme une fraction de cycle, qui s'additionne aux "
+                                "autres au fil de l'année — inutile que la batterie aille jusqu'à 0 % puis 100 % "
+                                "pour qu'un cycle « complet » soit compté.\n\n"
+                                "**Pourquoi cette méthode :** une décharge de 20 % de la capacité compte pour "
+                                "0,2 cycle ; dix décharges de 20 % équivalent à 2 cycles complets, peu importe "
+                                "l'ordre ou la taille de chaque décharge — seul le total compte. C'est exactement "
+                                "la convention qu'utilisent les fabricants pour établir leur propre garantie "
+                                "(« 6 000 cycles » signifie 6 000 cycles équivalents pleine charge, pas 6 000 "
+                                "vidages complets), donc comparer notre calcul à leur nombre de cycles nominal "
+                                "est cohérent.\n\n"
+                                "**Limite à connaître :** ceci suppose une usure uniforme par kWh traversé, quelle "
+                                "que soit la profondeur de chaque décharge — une simplification en l'absence de "
+                                "courbe de dégradation détaillée du fabricant, mais c'est aussi celle qu'ils "
+                                "utilisent eux-mêmes pour convertir un usage réel en équivalent cycles.\n\n"
+                                f"La durée de vie en années est recalculée automatiquement pour chaque capacité à "
+                                f"partir de son propre nombre de cycles réalisés par an, plafonnée à "
+                                f"{DUREE_VIE_MAX_ANS} ans (durée de vie calendaire réaliste, même si le cycle "
+                                "life théorique calculé est plus long).")
+                      
 
                     with st.container(border=True):
                         st.markdown("##### Exploitation")
@@ -1548,22 +1578,29 @@ if fichier_conso is not None and fichier_prod is not None:
                                "valorisation plus précise (pondérée par la décharge réelle), voir le "
                                "sous-onglet « 4. Bilan Financier », qui l'applique à la capacité choisie "
                                "individuellement.")
+                    
+                    
                     resultats_eco = []
                     for _, row in df_res_t4.iterrows():
                         cap = row["Capacité (kWh)"]
                         gain_net_kwh = row["Gain Énergétique (kWh)"]
+                        cycles_par_an = row["Cycles par an"]
+                        duree_vie_capacite = (min(nombre_cycles_nominal / cycles_par_an, DUREE_VIE_MAX_ANS)
+                                               if cycles_par_an > 0 else DUREE_VIE_MAX_ANS)
                         capex = capex_unitaire * cap + capex_fixe
                         opex_annuel_an1 = capex * opex_pct
                         indic = calculer_flux_et_indicateurs(
                             gain_net_kwh, capex, opex_annuel_an1, prix_ttc_moyen, prix_vente_reseau,
-                            taux_actualisation, duree_vie_ans, degradation_pct,
+                            taux_actualisation, duree_vie_capacite, degradation_pct,
                             taux_inflation_energie, taux_inflation_opex
                         )
                         resultats_eco.append({
-                          "Capacité (kWh)": cap, "CAPEX (€)": capex,
-                          "VAN (€)": indic["van"], "TRI (%)": indic["tri"], "LCOE (€/kWh)": indic["lcos"],
-                          "TRB (années)": indic["payback"], "Ratio B/C": indic["ratio_bc"],
+                            "Capacité (kWh)": cap, "CAPEX (€)": capex,
+                            "Durée de vie (années)": duree_vie_capacite,
+                            "VAN (€)": indic["van"], "TRI (%)": indic["tri"], "LCOE (€/kWh)": indic["lcos"],
+                            "TRB (années)": indic["payback"], "Ratio B/C": indic["ratio_bc"],
                         })
+                  
                     df_eco = pd.DataFrame(resultats_eco)
 
                     range_van, range_tri = calculer_ranges_alignes(df_eco["VAN (€)"].values, df_eco["TRI (%)"].values)
@@ -1674,6 +1711,11 @@ if fichier_conso is not None and fichier_prod is not None:
                         min_value=0.0, max_value=300.0, value=250.0, step=5.0, key="capacite_etude_input")
                     ligne_capacite = df_res_t4.iloc[(df_res_t4["Capacité (kWh)"] - capacite_etude).abs().argsort()[:1]].iloc[0]
                     gain_net_kwh_reel = ligne_capacite["Gain Énergétique (kWh)"]
+                    
+                    duree_etude_v2 = st.number_input("Durée d'étude du bilan financier (années)",
+                        min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input",
+                        help="Indépendante de la « Durée de vie » du sous-onglet Hypothèses (utilisée pour la "
+                             "VAN/TRI du sous-onglet 3). Ici, c'est l'horizon du plan de trésorerie détaillé.")
 
                     opex_an1_v2 = st.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=4600.0, step=100.0,
                         key="opex_an1_v2_input")
@@ -1708,7 +1750,7 @@ if fichier_conso is not None and fichier_prod is not None:
                         gain_net_kwh_an1=gain_net_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen_decharge,
                         taux_inflation_energie=taux_inflation_energie,
                         revenu_producteur_an1=revenu_producteur_an1, taux_inflation_revenu_producteur=taux_inflation_opex,
-                        duree_vie_ans=20, degradation_pct_an=degradation_pct,
+                        duree_vie_ans=duree_etude_v2, degradation_pct_an=degradation_pct,
                         prix_vente_reseau=prix_vente_reseau
                     )
 
