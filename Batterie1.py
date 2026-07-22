@@ -1041,15 +1041,17 @@ if fichier_conso is not None and fichier_prod is not None:
         # ONGLET 3 :Etude du Gain de la batterie 
         # ----------------------------------------------------
         with tab3:
-            st.header("Gain de la Batterie")
+            st.header("Gain de la Batterie", help=(
+                "**Qu'est-ce que le « gain net » ?** C'est la quantité d'énergie solaire supplémentaire "
+                "autoconsommée grâce à la batterie, par rapport à une installation identique fonctionnant "
+                "sans stockage (autoconsommation directe uniquement, sans surplus stocké ni redistribué).\n\n"
+                "Concrètement : *Gain net = Énergie autoconsommée avec batterie − Énergie autoconsommée sans "
+                "batterie*. Il représente donc les kWh de production solaire qui, sans la batterie, auraient "
+                "été perdus (renvoyés au réseau) et qui sont désormais utilisés sur place."
+            ))
             st.info(f"Période d'analyse : Du {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')} ({(date_fin - date_debut).days + 1} jours)")
             st.markdown("""
             L'objectif ici est de visualiser uniquement l'apport de la batterie par rapport à une installation solaire simple sans stockage.
-
-            **Qu'est-ce que le "gain net" ?** C'est la quantité d'énergie solaire supplémentaire autoconsommée grâce à la batterie,
-            par rapport à une installation identique fonctionnant sans stockage (autoconsommation directe uniquement, sans surplus stocké ni redistribué).
-            Concrètement : *Gain net = Énergie autoconsommée avec batterie − Énergie autoconsommée sans batterie*.
-            Il représente donc les kWh de production solaire qui, sans la batterie, auraient été perdus (renvoyés au réseau) et qui sont désormais utilisés sur place.
             """)
             
             st.subheader("Période d'analyse")
@@ -1107,18 +1109,22 @@ if fichier_conso is not None and fichier_prod is not None:
         # ----------------------------------------------------
         with tab4:
             st.header("Analyse Annuelle : Gain, Autoproduction et Autoconsommation")
+
+            aide_gain_energetique = (
+                "Gain énergétique = Énergie autoconsommée avec batterie sur l'année − Énergie autoconsommée "
+                "sans batterie sur l'année. Représente les kWh de production solaire qui, sans la batterie, "
+                "auraient été perdus (renvoyés au réseau) et qui sont désormais valorisés sur place."
+            ).replace('"', "'")
+
             st.markdown("""
             Cette analyse simule une **année complète glissante démarrant le 1er janvier** (indépendamment de la période
             sélectionnée plus haut), et calcule pour chaque capacité de batterie testée :
-            - le **gain énergétique**,
+            """)
+            st.markdown(f"""
+            - le <span title="{aide_gain_energetique}" style="cursor: help; border-bottom: 1px dotted #999;"><b>gain énergétique</b></span>,
             - le **taux d'autoproduction (TAP)**,
             - le **taux d'autoconsommation (TAC)**.
-
-            **Qu'est-ce que le "gain énergétique" ?** C'est la quantité d'énergie solaire supplémentaire autoconsommée sur l'année grâce à la batterie,
-            par rapport à la même installation sans stockage (autoconsommation directe uniquement). Autrement dit :
-            *Gain énergétique = Énergie autoconsommée avec batterie sur l'année − Énergie autoconsommée sans batterie sur l'année*.
-            Il représente les kWh de production solaire qui, sans la batterie, auraient été perdus (renvoyés au réseau) et qui sont désormais valorisés sur place.
-            """)
+            """, unsafe_allow_html=True)
 
             candidats_1er_janvier = df_complet.index[(df_complet.index.month == 1) & (df_complet.index.day == 1)]
 
