@@ -1720,7 +1720,7 @@ if fichier_conso is not None and fichier_prod is not None:
                     gain_net_kwh_reel = ligne_capacite["Gain Énergétique (kWh)"]
                     
                     duree_etude_v2 = st.number_input("Durée d'étude du bilan financier (années)",
-                        min_value=1, max_value=30, value=0, step=1, key="duree_etude_v2_input",
+                        min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input",
                         help="Indépendante de la « Durée de vie » du sous-onglet Hypothèses (utilisée pour la "
                              "VAN/TRI du sous-onglet 3). Ici, c'est l'horizon du plan de trésorerie détaillé.")
 
