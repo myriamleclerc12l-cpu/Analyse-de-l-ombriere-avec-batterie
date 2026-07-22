@@ -15,6 +15,9 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 # ==========================================
 # 0. PARAMÈTRES ET CONFIGURATION
@@ -541,6 +544,55 @@ def generer_pdf_enolab(df_enolab, capacite_etude, capex, tri_texte, lcos_texte, 
     elements.append(table)
 
     doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+def generer_png_enolab(df_enolab, capacite_etude, capex, tri_texte, lcos_texte, payback_texte, valorisation_texte):
+    colonnes = ["Année", "CAPEX (€ HT)", "OPEX (€ HT)", "Énergie autoconsommée (kWh)",
+                "Economie ACI (€ TTC)", "Revenu producteur (€)", "Economie nette (€)", "Flux cumulés (€)"]
+
+    data = []
+    for _, row in df_enolab.iterrows():
+        ligne = [row["Année"]]
+        for col in colonnes[1:]:
+            val = row[col]
+            ligne.append("" if pd.isna(val) else f"{val:,.0f}")
+        data.append(ligne)
+
+    n_rows = len(data) + 1
+    n_cols = len(colonnes)
+    fig_height = 0.32 * n_rows + 1.4
+
+    fig, ax = plt.subplots(figsize=(15, fig_height))
+    ax.axis("off")
+    ax.set_title(f"Bilan financier — Batterie {capacite_etude:.0f} kWh", fontsize=15, fontweight="bold", pad=28)
+    fig.text(0.5, 1 - 1.0 / fig_height,
+              f"CAPEX : {capex:,.0f} € HT   |   TRI : {tri_texte}   |   LCOE : {lcos_texte}   |   "
+              f"TRB : {payback_texte}   |   Valorisation interne : {valorisation_texte}",
+              ha="center", fontsize=9.5, color="#444444")
+
+    table = ax.table(cellText=data, colLabels=colonnes, loc="center", cellLoc="right")
+    table.auto_set_font_size(False)
+    table.set_fontsize(8)
+    table.scale(1, 1.5)
+
+    idx_flux = colonnes.index("Flux cumulés (€)")
+    for j in range(n_cols):
+        table[0, j].set_facecolor("#1F3864")
+        table[0, j].set_text_props(color="white", fontweight="bold")
+
+    for i, (_, row) in enumerate(df_enolab.iterrows(), start=1):
+        for j in range(n_cols):
+            if j != idx_flux:
+                table[i, j].set_facecolor("#F7F9FC" if i % 2 == 0 else "white")
+        val = row["Flux cumulés (€)"]
+        if pd.notna(val):
+            couleur = "#C6EFCE" if val >= 0 else "#FFC7CE"
+            table[i, idx_flux].set_facecolor(couleur)
+
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format="png", dpi=200, bbox_inches="tight")
+    plt.close(fig)
     buffer.seek(0)
     return buffer
 # ==========================================
@@ -1730,10 +1782,23 @@ if fichier_conso is not None and fichier_prod is not None:
                         f"{prix_ttc_moyen*100:.2f} c€/kWh"
                     )
                     st.download_button(
-                        label="📄 Télécharger le bilan financier en PDF",
+                        label=" Télécharger le bilan financier en PDF",
                         data=pdf_buffer,
                         file_name=f"bilan_financier_{capacite_etude:.0f}kWh.pdf",
                         mime="application/pdf"
+                    )
+                    png_buffer = generer_png_enolab(
+                        df_enolab, capacite_etude, capex_v2,
+                        f"{tri_v2*100:.1f} %" if tri_v2 is not None else "N/A",
+                        f"{lcos_v2*100:.2f} c€/kWh" if not np.isnan(lcos_v2) else "N/A",
+                        f"{payback_v2:.1f} ans" if payback_v2 is not None else "N/A",
+                        f"{prix_ttc_moyen*100:.2f} c€/kWh"
+                    )
+                    st.download_button(
+                        label=" Télécharger le bilan financier en PNG",
+                        data=png_buffer,
+                        file_name=f"bilan_financier_{capacite_etude:.0f}kWh.png",
+                        mime="image/png"
                     )
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
