@@ -1303,7 +1303,7 @@ if fichier_conso is not None and fichier_prod is not None:
                         st.success(f"###  Capacité recommandée : {cap_ideale_finale:.0f} kWh")
                         st.markdown("*Pour satisfaire simultanément tous vos critères, le système retient la valeur la plus exigeante parmi vos choix.*")
 
-                        col_res1, col_res2, col_res3, col_res4 = st.columns(4)
+                        col_res1, col_res2, col_res3, col_res4, col_res5 = st.columns(5)
                         with col_res1:
                             st.markdown(carte_indicateur("Capacité retenue", f"{cap_ideale_finale:.0f} kWh",
                                 "#E3F2FD", "#0D47A1"), unsafe_allow_html=True)
@@ -1316,8 +1316,12 @@ if fichier_conso is not None and fichier_prod is not None:
                         with col_res4:
                             st.markdown(carte_indicateur("TAC estimé", f"{ligne_ideale['TAC (%)']:.1f} %",
                                 "#FFF3E0", "#E65100"), unsafe_allow_html=True)
-                    else:
-                        st.warning("Veuillez cocher au moins une hypothèse technique ci-dessus.")
+                        with col_res5:
+                            st.markdown(carte_indicateur("Cycles/an estimés", f"{ligne_ideale['Cycles par an']:.1f}",
+                                "#F3E5F5", "#6A1B9A",
+                                aide="Cycles équivalents pleine charge par an, à la capacité recommandée : "
+                                     "gain net annuel ÷ capacité."
+                                ), unsafe_allow_html=True)
   
         # ----------------------------------------------------
         # ONGLET 5 : Analyse Budgétaire
