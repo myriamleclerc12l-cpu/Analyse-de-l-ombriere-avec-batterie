@@ -10,6 +10,11 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import io # Ajout de la bibliothèque io pour lire le format spécial Enedis
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import cm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
 # ==========================================
 # 0. PARAMÈTRES ET CONFIGURATION
@@ -489,6 +494,55 @@ def style_lcos(x):
 
 def style_payback(x):
     return style_indicateur(x, favorable=False)
+
+def generer_pdf_enolab(df_enolab, capacite_etude, capex, tri_texte, lcos_texte, payback_texte, valorisation_texte):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=1.2*cm, bottomMargin=1.2*cm,
+                             leftMargin=1.2*cm, rightMargin=1.2*cm)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph(f"Bilan financier — Batterie {capacite_etude:.0f} kWh", styles["Title"]))
+    elements.append(Spacer(1, 0.3*cm))
+    elements.append(Paragraph(f"CAPEX : {capex:,.0f} € HT &nbsp;&nbsp;|&nbsp;&nbsp; TRI : {tri_texte} "
+                               f"&nbsp;&nbsp;|&nbsp;&nbsp; LCOE : {lcos_texte} &nbsp;&nbsp;|&nbsp;&nbsp; "
+                               f"TRB : {payback_texte} &nbsp;&nbsp;|&nbsp;&nbsp; Valorisation interne : {valorisation_texte}",
+                               styles["Normal"]))
+    elements.append(Spacer(1, 0.5*cm))
+
+    colonnes = ["Année", "CAPEX (€ HT)", "OPEX (€ HT)", "Énergie autoconsommée (kWh)",
+                "Economie ACI (€ TTC)", "Revenu producteur (€)", "Economie nette (€)", "Flux cumulés (€)"]
+    data = [colonnes]
+    for _, row in df_enolab.iterrows():
+        ligne = [row["Année"]]
+        for col in colonnes[1:]:
+            val = row[col]
+            ligne.append("" if pd.isna(val) else f"{val:,.0f}")
+        data.append(ligne)
+
+    table = Table(data, repeatRows=1)
+    style_cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F3864")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#DDDDDD")),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F7F9FC")]),
+    ]
+    idx_flux = colonnes.index("Flux cumulés (€)")
+    for i, (_, row) in enumerate(df_enolab.iterrows(), start=1):
+        val = row["Flux cumulés (€)"]
+        if pd.notna(val):
+            couleur = colors.HexColor("#C6EFCE") if val >= 0 else colors.HexColor("#FFC7CE")
+            style_cmds.append(("BACKGROUND", (idx_flux, i), (idx_flux, i), couleur))
+    table.setStyle(TableStyle(style_cmds))
+    elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
 # ==========================================
 # TARIFS BPU OCTOPUS ENERGY — Année 2026
 # ==========================================
@@ -1668,5 +1722,18 @@ if fichier_conso is not None and fichier_prod is not None:
                     with col_s4:
                         st.markdown(carte_indicateur("Valorisation interne", f"{prix_ttc_moyen*100:.2f} c€/kWh",
                             "#E8F5E9", "#2E7D32"), unsafe_allow_html=True)
+                    pdf_buffer = generer_pdf_enolab(
+                        df_enolab, capacite_etude, capex_v2,
+                        f"{tri_v2*100:.1f} %" if tri_v2 is not None else "N/A",
+                        f"{lcos_v2*100:.2f} c€/kWh" if not np.isnan(lcos_v2) else "N/A",
+                        f"{payback_v2:.1f} ans" if payback_v2 is not None else "N/A",
+                        f"{prix_ttc_moyen*100:.2f} c€/kWh"
+                    )
+                    st.download_button(
+                        label="📄 Télécharger le bilan financier en PDF",
+                        data=pdf_buffer,
+                        file_name=f"bilan_financier_{capacite_etude:.0f}kWh.pdf",
+                        mime="application/pdf"
+                    )
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
