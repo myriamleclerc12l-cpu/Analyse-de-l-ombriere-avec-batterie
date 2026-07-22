@@ -1735,7 +1735,7 @@ if fichier_conso is not None and fichier_prod is not None:
                         min_value=0.0, value=0.0, step=10.0, key="revenu_producteur_an1_input",
                         help="Nature encore à définir. Laissé à 0 par défaut.")
                     capex_v2 = col_v5.number_input("CAPEX total (€ HT)", min_value=0.0,
-                        value= 0, step=1000.0, key="capex_v2_input",
+                        value= 0.0, step=1000.0, key="capex_v2_input",
                         help="Valeur fictive par défaut (1 000 €/kWh).")
                     
                     
