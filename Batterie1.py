@@ -1154,8 +1154,6 @@ if fichier_conso is not None and fichier_prod is not None:
                             energie_pv_valorisee_t4 = prod_tot_t4 - export_tot_t4
                             tac_val_t4 = (energie_pv_valorisee_t4 / prod_tot_t4 * 100) if prod_tot_t4 > 0 else 0
                             tap_val_t4 = (autoconso_tot_t4 / conso_tot_t4 * 100) if conso_tot_t4 > 0 else 0
-                            
-                            
                             cycles_par_an_t4 = (gain_batterie_t4 / cap) if cap > 0 else 0.0
 
                             resultats_t4.append({
@@ -1166,7 +1164,6 @@ if fichier_conso is not None and fichier_prod is not None:
                                 "TAP (%)": tap_val_t4,
                                 "TAC (%)": tac_val_t4
                             })
-
                             
 
                         df_resultats_t4 = pd.DataFrame(resultats_t4)
