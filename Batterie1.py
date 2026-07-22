@@ -1715,16 +1715,16 @@ if fichier_conso is not None and fichier_prod is not None:
                 # ----------------------------------------------------------------
                 with sous_tab4:
                     capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
-                        min_value=0.0, max_value=300.0, value=250.0, step=5.0, key="capacite_etude_input")
+                        min_value=0.0, max_value=500.0, value = 0, step=5.0, key="capacite_etude_input")
                     ligne_capacite = df_res_t4.iloc[(df_res_t4["Capacité (kWh)"] - capacite_etude).abs().argsort()[:1]].iloc[0]
                     gain_net_kwh_reel = ligne_capacite["Gain Énergétique (kWh)"]
                     
                     duree_etude_v2 = st.number_input("Durée d'étude du bilan financier (années)",
-                        min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input",
+                        min_value=1, max_value=30, value=0, step=1, key="duree_etude_v2_input",
                         help="Indépendante de la « Durée de vie » du sous-onglet Hypothèses (utilisée pour la "
                              "VAN/TRI du sous-onglet 3). Ici, c'est l'horizon du plan de trésorerie détaillé.")
 
-                    opex_an1_v2 = st.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=4600.0, step=100.0,
+                    opex_an1_v2 = st.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=0, step=100.0,
                         key="opex_an1_v2_input")
                     st.caption(f"Inflation OPEX et inflation électricité réutilisées depuis l'onglet "
                                f"« 2. Hypothèses » : {taux_inflation_opex*100:.1f} %/an et "
@@ -1735,7 +1735,7 @@ if fichier_conso is not None and fichier_prod is not None:
                         min_value=0.0, value=0.0, step=10.0, key="revenu_producteur_an1_input",
                         help="Nature encore à définir. Laissé à 0 par défaut.")
                     capex_v2 = col_v5.number_input("CAPEX total (€ HT)", min_value=0.0,
-                        value=capacite_etude * 1000.0, step=1000.0, key="capex_v2_input",
+                        value= 0, step=1000.0, key="capex_v2_input",
                         help="Valeur fictive par défaut (1 000 €/kWh).")
                     
                     
