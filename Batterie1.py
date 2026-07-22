@@ -1582,8 +1582,8 @@ if fichier_conso is not None and fichier_prod is not None:
                         cap = row["Capacité (kWh)"]
                         gain_net_kwh = row["Gain Énergétique (kWh)"]
                         cycles_par_an = row["Cycles par an"]
-                        duree_vie_capacite = (min(nombre_cycles_nominal / cycles_par_an, DUREE_VIE_MAX_ANS)
-                                               if cycles_par_an > 0 else DUREE_VIE_MAX_ANS)
+                        duree_vie_capacite = int(round(min(nombre_cycles_nominal / cycles_par_an, DUREE_VIE_MAX_ANS)
+                                                          if cycles_par_an > 0 else DUREE_VIE_MAX_ANS))
                         capex = capex_unitaire * cap + capex_fixe
                         opex_annuel_an1 = capex * opex_pct
                         indic = calculer_flux_et_indicateurs(
