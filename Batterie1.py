@@ -45,11 +45,23 @@ st.markdown("""
 @st.cache_data
 def charger_donnees_reelles(files_conso, files_prod, file_bornes):
     """
-    files_conso, files_prod : listes de fichiers (même format simple : date, valeur en W),
-    sommés ensemble pour obtenir la courbe combinée du site (conso) et de production.
+    files_conso, files_prod : listes de fichiers (même format simple : date, valeur en W).
+    Chaque courbe individuelle est conservée dans sa propre colonne ("conso_kW__<nom>" /
+    "prod_kW__<nom>"), en plus des colonnes sommées conso_kW / prod_kW.
     """
-    def charger_et_sommer(files):
-        series_list = []
+    def nom_unique(nom_fichier, deja_utilises):
+        base = nom_fichier.rsplit('.', 1)[0]
+        nom = base
+        compteur = 2
+        while nom in deja_utilises:
+            nom = f"{base} ({compteur})"
+            compteur += 1
+        deja_utilises.add(nom)
+        return nom
+
+    def charger_fichiers(files):
+        series_dict = {}
+        deja_utilises = set()
         for f in files:
             if f.name.endswith('.csv'):
                 df_f = pd.read_csv(f)
@@ -59,20 +71,32 @@ def charger_donnees_reelles(files_conso, files_prod, file_bornes):
             df_f["date"] = pd.to_datetime(df_f["date"], utc=True)
             df_f.set_index("date", inplace=True)
             df_f["valeur_W"] = pd.to_numeric(df_f["valeur_W"], errors='coerce').fillna(0)
-            series_list.append(df_f["valeur_W"])
-        if not series_list:
-            return pd.Series(dtype=float)
-        return pd.concat(series_list, axis=1, sort=True).fillna(0).sum(axis=1)
+            nom = nom_unique(f.name, deja_utilises)
+            series_dict[nom] = df_f["valeur_W"]
+        return series_dict
 
-    serie_conso_w = charger_et_sommer(files_conso)
-    serie_prod_w = charger_et_sommer(files_prod)
+    conso_dict = charger_fichiers(files_conso)
+    prod_dict = charger_fichiers(files_prod)
 
-    df = pd.concat([serie_conso_w, serie_prod_w], axis=1)
-    df.columns = ["conso_W", "prod_W"]
-    df = df.fillna(0)
-    df["conso_kW"] = df["conso_W"] / 1000.0
-    df["prod_kW"] = df["prod_W"] / 1000.0
-    df = df[["conso_kW", "prod_kW"]]
+    toutes_series = {}
+    for nom, s in conso_dict.items():
+        toutes_series[f"conso_kW__{nom}"] = s / 1000.0
+    for nom, s in prod_dict.items():
+        toutes_series[f"prod_kW__{nom}"] = s / 1000.0
+
+    if toutes_series:
+        df = pd.concat(toutes_series.values(), axis=1, keys=toutes_series.keys(), sort=True).fillna(0)
+    else:
+        df = pd.DataFrame()
+
+    noms_courbes_conso = list(conso_dict.keys())
+    noms_courbes_prod = list(prod_dict.keys())
+
+    colonnes_conso_kw = [f"conso_kW__{n}" for n in noms_courbes_conso]
+    colonnes_prod_kw = [f"prod_kW__{n}" for n in noms_courbes_prod]
+
+    df["conso_kW"] = df[colonnes_conso_kw].sum(axis=1) if colonnes_conso_kw else 0.0
+    df["prod_kW"] = df[colonnes_prod_kw].sum(axis=1) if colonnes_prod_kw else 0.0
     df.sort_index(inplace=True)
 
     # --- Ajout des bornes de recharge (Format Enedis) ---
@@ -97,12 +121,12 @@ def charger_donnees_reelles(files_conso, files_prod, file_bornes):
                 date_col = date_cols[0]
         else:
                 st.error("Aucune colonne de date ou d'horodate trouvée.")
-                return df
+                return df, noms_courbes_conso, noms_courbes_prod
 
         val_col = [col for col in df_b.columns if 'valeur' in col.lower() or 'soutirage' in col.lower() or 'puissance' in col.lower()]
         if not val_col:
              st.error("Aucune colonne de valeur trouvée.")
-             return df
+             return df, noms_courbes_conso, noms_courbes_prod
         val_col = val_col[0]
 
         prm_cols = [col for col in df_b.columns if 'prm' in col.lower()]
@@ -121,7 +145,6 @@ def charger_donnees_reelles(files_conso, files_prod, file_bornes):
         if df_b["valeur"].dtype == object:
             df_b["valeur"] = df_b["valeur"].str.replace(',', '.').astype(float)
 
-        # --- Ré-échantillonnage PAR BORNE sur la grille du dataframe principal ---
         pas_principal = df.index[1] - df.index[0]
 
         series_par_borne = []
@@ -134,14 +157,13 @@ def charger_donnees_reelles(files_conso, files_prod, file_bornes):
         df_b_final = conso_bornes_totale.to_frame("valeur")
         df_b_final["conso_bornes_kW"] = df_b_final["valeur"] / 1000.0
 
-        # Fusion avec le dataframe principal
         df = df.join(df_b_final["conso_bornes_kW"], how='left')
         df["conso_bornes_kW"] = df["conso_bornes_kW"].fillna(0)
         df["conso_kW"] = df["conso_kW"] + df["conso_bornes_kW"]
 
        except Exception as e:
         st.error(f"Erreur lors de la lecture du fichier Enedis des bornes : {e}")
-    return df
+    return df, noms_courbes_conso, noms_courbes_prod
 
 def simuler_systeme_avec_batterie(df, capacite_kwh, p_max_kw=3.0, soc_initial_pct=0.0):
     if len(df) > 1:
@@ -674,9 +696,10 @@ fichiers_prod = st.sidebar.file_uploader("Courbes de production PV", type=["csv"
          "date, puissance en W). Toutes les courbes sont sommées pour obtenir la production totale.")
 
 
+
 if fichiers_conso and fichiers_prod:
     st.sidebar.success("Fichiers réels chargés.")
-    df_complet = charger_donnees_reelles(fichiers_conso, fichiers_prod, fichier_bornes)
+    df_complet, noms_courbes_conso, noms_courbes_prod = charger_donnees_reelles(fichiers_conso, fichiers_prod, fichier_bornes)
 
     date_min = df_complet.index.min().date()
     date_max = df_complet.index.max().date()
@@ -781,26 +804,30 @@ if fichiers_conso and fichiers_prod:
 
         st.markdown("---")
         st.subheader("Comparaison des courbes de charge")
-        col_cb1, col_cb2, col_cb3 = st.columns(3)
-        afficher_bornes_seules = col_cb1.checkbox("Charge Bornes", value=False, key="cb_bornes_t1")
-        afficher_siege_seul = col_cb2.checkbox("Charge Siège", value=False, key="cb_siege_t1")
-        afficher_total = col_cb3.checkbox("Siège + Bornes", value=True, key="cb_total_t1")
 
-        if not (afficher_bornes_seules or afficher_siege_seul or afficher_total):
-            st.info("Cochez au moins une case ci-dessus pour afficher une courbe.")
+        options_courbes_t1 = list(noms_courbes_conso)
+        if "conso_bornes_kW" in df_simu.columns:
+            options_courbes_t1 = options_courbes_t1 + ["Bornes"]
+        options_courbes_t1 = options_courbes_t1 + ["Total (toutes les courbes)"]
+
+        courbes_cochees_t1 = st.multiselect("Courbes à afficher", options_courbes_t1,
+            default=["Total (toutes les courbes)"], key="courbes_t1")
+
+        if not courbes_cochees_t1:
+            st.info("Sélectionnez au moins une courbe ci-dessus pour l'afficher.")
         else:
+            palette = ["royalblue", "#F4A261", "#8E44AD", "#16A085", "#C0392B", "#2980B9", "#D35400"]
             fig_comp = go.Figure()
-            if afficher_bornes_seules and "conso_bornes_kW" in df_simu.columns:
+            for i, nom in enumerate(noms_courbes_conso):
+                if nom in courbes_cochees_t1:
+                    fig_comp.add_trace(go.Scatter(x=df.index, y=df_simu[f"conso_kW__{nom}"], mode="lines",
+                        name=nom, line=dict(color=palette[i % len(palette)], width=2)))
+            if "Bornes" in courbes_cochees_t1 and "conso_bornes_kW" in df_simu.columns:
                 fig_comp.add_trace(go.Scatter(x=df.index, y=df_simu["conso_bornes_kW"], mode="lines",
-                    name="Charge Bornes (kW)", line=dict(color="#E63946", width=2)))
-            if afficher_siege_seul:
-                conso_siege_seule_t1 = (df_simu["conso_kW"] - df_simu["conso_bornes_kW"]
-                                          if "conso_bornes_kW" in df_simu.columns else df_simu["conso_kW"])
-                fig_comp.add_trace(go.Scatter(x=df.index, y=conso_siege_seule_t1, mode="lines",
-                    name="Charge Siège (kW)", line=dict(color="royalblue", width=2)))
-            if afficher_total:
+                    name="Bornes", line=dict(color="#E63946", width=2)))
+            if "Total (toutes les courbes)" in courbes_cochees_t1:
                 fig_comp.add_trace(go.Scatter(x=df.index, y=df_simu["conso_kW"], mode="lines",
-                    name="Siège + Bornes (kW)", line=dict(color="#2A9D8F", width=2)))
+                    name="Total", line=dict(color="#2A9D8F", width=3)))
 
             fig_comp.update_layout(
                 title="Comparaison des courbes de charge",
@@ -973,30 +1000,34 @@ if fichiers_conso and fichiers_prod:
 
         st.markdown("---")
         st.subheader("Comparaison des courbes de charge (pics quotidiens)")
-        col_cb1_ld, col_cb2_ld, col_cb3_ld = st.columns(3)
-        afficher_bornes_seules_ld = col_cb1_ld.checkbox("Charge Bornes", value=False, key="cb_bornes_t2")
-        afficher_siege_seul_ld = col_cb2_ld.checkbox("Charge Siège", value=False, key="cb_siege_t2")
-        afficher_total_ld = col_cb3_ld.checkbox("Siège + Bornes", value=True, key="cb_total_t2")
 
-        if not (afficher_bornes_seules_ld or afficher_siege_seul_ld or afficher_total_ld):
-            st.info("Cochez au moins une case ci-dessus pour afficher une courbe.")
+        options_courbes_t2 = list(noms_courbes_conso)
+        if "conso_bornes_kW" in df_simu_ld.columns:
+            options_courbes_t2 = options_courbes_t2 + ["Bornes"]
+        options_courbes_t2 = options_courbes_t2 + ["Total (toutes les courbes)"]
+
+        courbes_cochees_t2 = st.multiselect("Courbes à afficher", options_courbes_t2,
+            default=["Total (toutes les courbes)"], key="courbes_t2")
+
+        if not courbes_cochees_t2:
+            st.info("Sélectionnez au moins une courbe ci-dessus pour l'afficher.")
         else:
+            palette = ["royalblue", "#F4A261", "#8E44AD", "#16A085", "#C0392B", "#2980B9", "#D35400"]
             fig_comp_ld = go.Figure()
-            if afficher_bornes_seules_ld and "conso_bornes_kW" in df_simu_ld.columns:
+            for i, nom in enumerate(noms_courbes_conso):
+                if nom in courbes_cochees_t2:
+                    pic_j = df_simu_ld.groupby(jours)[f"conso_kW__{nom}"].max()
+                    pic_j.index = pd.to_datetime(pic_j.index)
+                    fig_comp_ld.add_trace(go.Scatter(x=pic_j.index, y=pic_j.values, mode="lines",
+                        name=f"Pic {nom} (kW/j)", line=dict(color=palette[i % len(palette)], width=2)))
+            if "Bornes" in courbes_cochees_t2 and "conso_bornes_kW" in df_simu_ld.columns:
                 bornes_pic_j = df_simu_ld.groupby(jours)["conso_bornes_kW"].max()
                 bornes_pic_j.index = pd.to_datetime(bornes_pic_j.index)
                 fig_comp_ld.add_trace(go.Scatter(x=bornes_pic_j.index, y=bornes_pic_j.values, mode="lines",
-                    name="Pic Charge Bornes (kW/j)", line=dict(color="#E63946", width=2)))
-            if afficher_siege_seul_ld:
-                conso_siege_seule_ld = (df_simu_ld["conso_kW"] - df_simu_ld["conso_bornes_kW"]
-                                          if "conso_bornes_kW" in df_simu_ld.columns else df_simu_ld["conso_kW"])
-                siege_pic_j = conso_siege_seule_ld.groupby(jours).max()
-                siege_pic_j.index = pd.to_datetime(siege_pic_j.index)
-                fig_comp_ld.add_trace(go.Scatter(x=siege_pic_j.index, y=siege_pic_j.values, mode="lines",
-                    name="Pic Charge Siège (kW/j)", line=dict(color="royalblue", width=2)))
-            if afficher_total_ld:
+                    name="Pic Bornes (kW/j)", line=dict(color="#E63946", width=2)))
+            if "Total (toutes les courbes)" in courbes_cochees_t2:
                 fig_comp_ld.add_trace(go.Scatter(x=conso_pic_j.index, y=conso_pic_j.values, mode="lines",
-                    name="Pic Siège + Bornes (kW/j)", line=dict(color="#2A9D8F", width=2)))
+                    name="Pic Total (kW/j)", line=dict(color="#2A9D8F", width=3)))
 
             fig_comp_ld.update_layout(
                 title="Comparaison des pics quotidiens de charge",
