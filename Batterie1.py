@@ -856,8 +856,12 @@ if fichiers_conso and fichiers_prod:
 
         st.subheader("Période d'analyse")
         col_date1_t2, col_date2_t2 = st.columns(2)
-        date_debut = col_date1_t2.date_input("Date de début", value=date_min, min_value=date_min, max_value=date_max, format="DD/MM/YYYY", key="date_debut_t2")
-        date_fin = col_date2_t2.date_input("Date de fin (incluse)", value=date_min, min_value=date_min, max_value=date_max, format="DD/MM/YYYY", key="date_fin_t2")
+        date_debut_defaut_t2 = max(date_min, pd.Timestamp(year=date_min.year, month=1, day=1).date())
+        date_fin_defaut_t2 = min(date_max, pd.Timestamp(year=date_min.year, month=2, day=1).date())
+        if date_fin_defaut_t2 < date_debut_defaut_t2:
+            date_fin_defaut_t2 = date_debut_defaut_t2
+        date_debut = col_date1_t2.date_input("Date de début", value=date_debut_defaut_t2, min_value=date_min, max_value=date_max, format="DD/MM/YYYY", key="date_debut_t2")
+        date_fin = col_date2_t2.date_input("Date de fin (incluse)", value=date_fin_defaut_t2, min_value=date_min, max_value=date_max, format="DD/MM/YYYY", key="date_fin_t2")
         mask = (df_complet.index.date >= date_debut) & (df_complet.index.date <= date_fin)
         df = df_complet.loc[mask]
         if df.empty:
