@@ -1715,30 +1715,38 @@ if fichiers_conso and fichiers_prod:
             # ----------------------------------------------------------------
             # SOUS-ONGLET 2 : HYPOTHÈSES GLOBALES
             # ----------------------------------------------------------------
+            # ----------------------------------------------------------------
+            # SOUS-ONGLET 2 : HYPOTHÈSES GLOBALES
+            # ----------------------------------------------------------------
             with sous_tab2:
                 st.markdown("Définissez ici les hypothèses techniques et financières du projet global.")
 
                 # 1. Paramètres généraux
-                st.markdown("#####  Paramètres généraux")
+                st.markdown("##### 📏 Paramètres généraux")
                 col_p1, col_p2 = st.columns(2)
                 capacite_etude = col_p1.number_input("Capacité de la batterie étudiée (kWh)", min_value=0.0, max_value=1000.0, value=250.0, step=5.0, key="capacite_etude_input")
                 duree_etude_v2 = col_p2.number_input("Durée d'étude du bilan (années)", min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input")
 
                 # 2. CAPEX, Subvention & OPEX
                 st.markdown("#####  Investissement (CAPEX) et Maintenance (OPEX)")
-                col_c1, col_c2 = st.columns(2)
-                capex_brut = col_c1.number_input("CAPEX brut global (€ HT)", min_value=0.0, value=250000.0, step=1000.0, help="Coût total (Production + Batterie) avant aides.")
-                subvention = col_c2.number_input("Subvention (€)", min_value=0.0, value=0.0, step=1000.0, help="Montant des aides, déduit de l'investissement initial.")
+                col_c1, col_c2, col_c3 = st.columns(3)
+                capex_brut = col_c1.number_input("CAPEX brut global AVEC batterie (€ HT)", min_value=0.0, value=250000.0, step=1000.0, help="Coût total de l'installation (Production + Stockage).")
+                capex_sans_batt_hyp = col_c2.number_input("CAPEX brut SANS batterie (€ HT)", min_value=0.0, value=150000.0, step=1000.0, help="Sert de référence pour calculer l'apport spécifique du stockage dans l'onglet 4.")
+                subvention = col_c3.number_input("Subvention globale (€)", min_value=0.0, value=0.0, step=1000.0, help="Montant des aides, déduit de l'investissement initial.")
                 
-                col_c3, col_c4 = st.columns(2)
-                opex_pct = col_c3.number_input("OPEX annuel (% du CAPEX brut)", min_value=0.0, max_value=20.0, value=1.5, step=0.1) / 100.0
-                taux_inflation_opex = col_c4.number_input("Inflation OPEX (%/an)", min_value=0.0, max_value=10.0, value=1.5, step=0.1) / 100.0
+                col_c4, col_c5 = st.columns(2)
+                opex_pct = col_c4.number_input("OPEX annuel (% du CAPEX brut)", min_value=0.0, max_value=20.0, value=1.5, step=0.1) / 100.0
+                taux_inflation_opex = col_c5.number_input("Inflation OPEX (%/an)", min_value=0.0, max_value=10.0, value=1.5, step=0.1) / 100.0
 
-                # ---> Déduction pour le bilan
-                capex_v2 = max(0.0, capex_brut - subvention) # L'investissement net (reste à charge)
-                opex_an1_v2 = capex_brut * opex_pct          # L'entretien se paie sur la valeur matérielle totale
+                # ---> Déduction pour le bilan AVEC batterie (utilisé onglets 3 et 4)
+                capex_v2 = max(0.0, capex_brut - subvention) # Investissement net
+                opex_an1_v2 = capex_brut * opex_pct          # La maintenance se calcule sur le brut
                 
-                st.info(f" **Synthèse :** L'investissement net à financer (CAPEX - Subvention) est de **{capex_v2:,.0f} €**. "
+                # ---> Déduction pour le bilan SANS batterie (utilisé onglet 4)
+                capex_sans_v2 = capex_sans_batt_hyp
+                opex_sans_an1_v2 = capex_sans_batt_hyp * opex_pct
+
+                st.info(f" **Synthèse AVEC batterie :** L'investissement net à financer est de **{capex_v2:,.0f} €**. "
                         f"L'OPEX Année 1 est de **{opex_an1_v2:,.0f} €**.")
 
                 # 3. Marché et Batterie
@@ -1750,12 +1758,7 @@ if fichiers_conso and fichiers_prod:
 
                 col_m4, col_m5 = st.columns(2)
                 degradation_pct = col_m4.number_input("Dégradation batterie (%/an)", min_value=0.0, max_value=10.0, value=2.0, step=0.1) / 100.0
-                nombre_cycles_nominal = col_m5.number_input("Cycles nominaux (garantie)", min_value=100, max_value=20000, value=6000, step=100,
-                    help="**Comment :** cycles/an = énergie déchargée sur l'année (kWh) ÷ capacité de la "
-                         "batterie (kWh). C'est la méthode des « cycles équivalents pleine charge » : "
-                         "chaque petite décharge compte comme une fraction de cycle, qui s'additionne aux "
-                         "autres au fil de l'année — inutile que la batterie aille jusqu'à 0 % puis 100 % "
-                         "pour qu'un cycle « complet » soit compté.")
+                nombre_cycles_nominal = col_m5.number_input("Cycles nominaux (garantie)", min_value=100, max_value=20000, value=6000, step=100)
 
                 if prix_vente_reseau >= prix_ttc_moyen:
                     st.warning(" Le prix de vente au réseau est supérieur ou égal au prix d'achat évité : stocker n'a pas de sens économique dans ce cas.")
@@ -1903,27 +1906,20 @@ if fichiers_conso and fichiers_prod:
             # ----------------------------------------------------------------
             # SOUS-ONGLET 4 : COMPARATIF AVEC VS SANS BATTERIE
             # ----------------------------------------------------------------
+            # ----------------------------------------------------------------
+            # SOUS-ONGLET 4 : COMPARATIF AVEC VS SANS BATTERIE
+            # ----------------------------------------------------------------
             with sous_tab4:
                 st.markdown("###  Comparaison des Bilans Financiers")
-                st.write("Cet onglet génère les deux plans de trésorerie complets pour comparer la rentabilité globale de l'investissement.")
-
-                # --- 1. Paramétrage SANS Batterie ---
-                st.markdown("##### Hypothèses SANS batterie")
-                # On déduit un CAPEX/OPEX "sans batterie" logique par défaut (CAPEX Total - coût estimé de la batterie)
-                capex_batt_estime = capacite_etude * capex_unitaire
-                capex_sans_defaut = max(0.0, capex_v2 - capex_batt_estime)
-                opex_sans_defaut = max(0.0, opex_an1_v2 - (capex_batt_estime * opex_pct))
-                
-                col_c_sans1, col_c_sans2 = st.columns(2)
-                capex_sans = col_c_sans1.number_input("CAPEX du système SANS batterie (€ HT)", min_value=0.0, value=float(capex_sans_defaut), step=1000.0, key="capex_sans")
-                opex_sans = col_c_sans2.number_input("OPEX année 1 SANS batterie (€ HT)", min_value=0.0, value=float(opex_sans_defaut), step=100.0, key="opex_sans")
+                st.write("Cet onglet compare directement la rentabilité de votre projet selon qu'il intègre ou non du stockage. Les hypothèses (CAPEX/OPEX) sont tirées du sous-onglet 2.")
 
                 # Simulation SANS batterie
                 df_sans_batt, dt_sans = simuler_systeme_avec_batterie(df, 0.0, 0.0, 0)
                 autoconso_kwh_sans = df_sans_batt["Autoconso_Totale_kW"].sum() * dt_sans
                 
+                # Bilan SANS batterie (utilise les variables calculées dans l'onglet Hypothèses)
                 df_enolab_sans = calculer_tableau_enolab(
-                    capex=capex_sans, opex_an1=opex_sans, taux_inflation_opex=taux_inflation_opex,
+                    capex=capex_sans_v2, opex_an1=opex_sans_an1_v2, taux_inflation_opex=taux_inflation_opex,
                     energie_kwh_an1=autoconso_kwh_sans, prix_moyen_ttc_an1=prix_ttc_moyen,
                     taux_inflation_energie=taux_inflation_energie, duree_vie_ans=duree_etude_v2,
                     degradation_pct_an=degradation_pct, prix_vente_reseau=prix_vente_reseau,
@@ -1933,14 +1929,14 @@ if fichiers_conso and fichiers_prod:
                 # df_enolab (AVEC batterie) est déjà calculé dans sous_tab3
                 df_enolab_avec = df_enolab
 
-                # --- 2. Affichage des Tableaux ---
+                # --- 1. Affichage des Tableaux ---
                 st.markdown("#### 1. Plan de trésorerie SANS batterie")
                 st.dataframe(df_enolab_sans.style.format({
                     "CAPEX (€ HT)": fmt_eur, "OPEX (€ HT)": fmt_eur,
                     "Énergie autoconsommée (kWh)": fmt_eur,
                     "Economie ACI (€ TTC)": fmt_eur, "Revenu producteur (€)": fmt_eur,
                     "Economie nette (€)": fmt_eur, "Flux cumulés (€)": fmt_eur,
-                }).map(couleur_flux, subset=["Flux cumulés (€)"]), use_container_width=True)
+                }).map(couleur_flux, subset=["Flux cumulés (€)"]), width="stretch")
 
                 st.markdown("#### 2. Plan de trésorerie AVEC batterie")
                 st.dataframe(df_enolab_avec.style.format({
@@ -1948,9 +1944,9 @@ if fichiers_conso and fichiers_prod:
                     "Énergie autoconsommée (kWh)": fmt_eur,
                     "Economie ACI (€ TTC)": fmt_eur, "Revenu producteur (€)": fmt_eur,
                     "Economie nette (€)": fmt_eur, "Flux cumulés (€)": fmt_eur,
-                }).map(couleur_flux, subset=["Flux cumulés (€)"]), use_container_width=True)
+                }).map(couleur_flux, subset=["Flux cumulés (€)"]), width="stretch")
 
-                # --- 3. Calcul des Indicateurs SANS batterie ---
+                # --- 2. Calcul des Indicateurs SANS batterie ---
                 flux_annuels_sans = df_enolab_sans["Economie nette (€)"].values.astype(float)
                 cumul_sans = df_enolab_sans["Flux cumulés (€)"].values.astype(float)
                 annees_sans = np.arange(0, len(flux_annuels_sans))
@@ -1968,7 +1964,7 @@ if fichiers_conso and fichiers_prod:
 
                 opex_sans_arr = -df_enolab_sans["OPEX (€ HT)"].fillna(0).values.astype(float)
                 energie_sans_arr = df_enolab_sans["Énergie autoconsommée (kWh)"].fillna(0).values.astype(float)
-                couts_actualises_sans = capex_sans + float(np.sum(opex_sans_arr[1:] * facteurs_v2[1:]))
+                couts_actualises_sans = capex_sans_v2 + float(np.sum(opex_sans_arr[1:] * facteurs_v2[1:]))
                 energie_actualisee_sans = float(np.sum(energie_sans_arr[1:] * facteurs_v2[1:]))
                 lcos_sans = couts_actualises_sans / energie_actualisee_sans if energie_actualisee_sans > 0 else float("nan")
 
@@ -1978,7 +1974,7 @@ if fichiers_conso and fichiers_prod:
                     i = idx_positif_sans[0]
                     payback_sans = float((i - 1) + (-cumul_sans[i - 1] / flux_annuels_sans[i])) if flux_annuels_sans[i] != 0 else float(i)
 
-                # --- 4. Comparaison des 4 Indicateurs Clés ---
+                # --- 3. Comparaison des 4 Indicateurs Clés ---
                 st.markdown("#### 3. Comparaison des Indicateurs de Synthèse")
                 
                 str_tri_sans = f"{tri_sans*100:.1f} %" if tri_sans is not None else "N/A"
