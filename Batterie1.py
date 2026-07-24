@@ -1800,16 +1800,26 @@ if fichiers_conso and fichiers_prod:
             # ----------------------------------------------------------------
             with sous_tab3:
                 
+                c1, c2, c3, c4 = st.columns(4)
                 
-               
+                with c1:
+                    # Bleu
+                    st.markdown(carte_indicateur("Capacité étudiée", f"{capacite_etude:.0f} kWh",
+                        "#E3F2FD", "#0D47A1"), unsafe_allow_html=True)
+                with c2:
+                    # Orange
+                    st.markdown(carte_indicateur("Durée d'étude", f"{duree_etude_v2:.0f} ans",
+                        "#FFF3E0", "#E65100"), unsafe_allow_html=True)
+                with c3:
+                    # Rouge (Investissement)
+                    st.markdown(carte_indicateur("CAPEX", f"{capex_v2:,.0f} €",
+                        "#FFEBEE", "#C62828"), unsafe_allow_html=True)
+                with c4:
+                    # Bleu canard (Fonctionnement)
+                    st.markdown(carte_indicateur("OPEX année 1", f"{opex_an1_v2:,.0f} €",
+                        "#E0F7FA", "#006064"), unsafe_allow_html=True)
 
-                st.caption(
-        f"Capacité étudiée : {capacite_etude:.0f} kWh - "
-        f"Durée d'étude : {duree_etude_v2} ans - "
-        f"OPEX année 1 : {opex_an1_v2:,.0f} € - "
-        f"CAPEX total : {capex_v2:,.0f} € "
-        f"(paramètres définis dans le sous-onglet « 2. Hypothèses »)."
-                )
+   
 
                 ligne_capacite = df_res_t4.iloc[
                 (df_res_t4["Capacité (kWh)"] - capacite_etude)
