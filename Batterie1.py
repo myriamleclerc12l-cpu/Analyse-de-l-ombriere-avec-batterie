@@ -1589,7 +1589,7 @@ if fichiers_conso and fichiers_prod:
 
                 st.markdown("##### Fourniture — BPU Octopus Energy 2026")
                 SEGMENTS_DISPONIBLES = ["C5 - Bâtiments et équipements", "C4", "C2"]
-                    
+
                 col_t1, col_t2 = st.columns(2)
                 with col_t1:
                     segment_siege, cadran_siege, profil_siege = choisir_segment_et_cadran("Siège", "siege")
@@ -1609,7 +1609,7 @@ if fichiers_conso and fichiers_prod:
                     "HCSh": "Heures Creuses, Saison Haute (22h-6h, novembre à mars).",
                     "HPSb": "Heures Pleines, Saison Basse (6h-22h, avril à octobre).",
                     "HCSb": "Heures Creuses, Saison Basse (22h-6h, avril à octobre).",
-                    "Pte": "Pointe fixe (période de forte tension sur le réseau).  Non appliquée "
+                    "Pte": "Pointe fixe (période de forte tension sur le réseau). Non appliquée "
                            "dans le calcul actuel — la plage horaire de Pointe n'est pas encore "
                            "définie, ces instants sont comptés comme Heures Pleines à la place.",
                 }
@@ -1639,29 +1639,16 @@ if fichiers_conso and fichiers_prod:
                                        "n'est pas encore pris en compte dans le calcul du prix évité "
                                        "(voir l'infobulle du cadran « Pte »).")
 
-                    with st.expander("Détail Acheminement (TURPE) et composantes fixes du BPU"):
-                        for nom_site, profil, turpe_d in [("Siège", profil_siege, turpe_dict_siege),
-                                                             ("Bornes", profil_bornes, turpe_dict_bornes)]:
-                            st.markdown(f"**TURPE (€/kWh) — {nom_site} ({profil})**")
-                            col_turpe = st.columns(len(turpe_d))
-                            for i, cadran in enumerate(turpe_d.keys()):
-                                with col_turpe[i]:
-                                    st.markdown(carte_indicateur(cadran, f"{turpe_d[cadran]:.5f}",
-                                        "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
-                                        aide=aide_cadrans_generique.get(cadran, "")), unsafe_allow_html=True)
-
-                        st.markdown("**Composantes fixes du BPU**")
-                        col_fix1, col_fix2 = st.columns(2)
-                        with col_fix1:
-                            st.markdown(carte_indicateur("Garanties d'Origine (GO)", f"{PRIX_GO:.2f} €/MWh",
-                                "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
-                                aide="Certificat attestant que l'électricité fournie provient de sources "
-                                     "renouvelables. Coût additionnel fixe, toujours inclus."), unsafe_allow_html=True)
-                        with col_fix2:
-                            st.markdown(carte_indicateur("Obligations CEE", f"{PRIX_CEE:.2f} €/MWh",
-                                "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
-                                aide="Certificats d'Économies d'Énergie. Coût additionnel fixe, toujours inclus."
-                                ), unsafe_allow_html=True)
+                with st.expander("Détail Acheminement (TURPE) et composantes fixes du BPU"):
+                    for nom_site, profil, turpe_d in [("Siège", profil_siege, turpe_dict_siege),
+                                                         ("Bornes", profil_bornes, turpe_dict_bornes)]:
+                        st.markdown(f"**TURPE (€/kWh) — {nom_site} ({profil})**")
+                        col_turpe = st.columns(len(turpe_d))
+                        for i, cadran in enumerate(turpe_d.keys()):
+                            with col_turpe[i]:
+                                st.markdown(carte_indicateur(cadran, f"{turpe_d[cadran]:.5f}",
+                                    "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
+                                    aide=aide_cadrans_generique.get(cadran, "")), unsafe_allow_html=True)
 
                     st.markdown("**Composantes fixes du BPU**")
                     col_fix1, col_fix2 = st.columns(2)
@@ -1669,18 +1656,12 @@ if fichiers_conso and fichiers_prod:
                         st.markdown(carte_indicateur("Garanties d'Origine (GO)", f"{PRIX_GO:.2f} €/MWh",
                             "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
                             aide="Certificat attestant que l'électricité fournie provient de sources "
-                                 "renouvelables. Coût additionnel fixe (indépendant du cadran horaire), "
-                                 "toujours inclus dans le calcul du prix évité."
-                            ), unsafe_allow_html=True)
+                                 "renouvelables. Coût additionnel fixe, toujours inclus."), unsafe_allow_html=True)
                     with col_fix2:
                         st.markdown(carte_indicateur("Obligations CEE", f"{PRIX_CEE:.2f} €/MWh",
                             "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
-                            aide="Certificats d'Économies d'Énergie : obligation réglementaire imposée "
-                                 "aux fournisseurs de financer des actions de réduction de consommation, "
-                                 "répercutée sur le prix de vente. Coût additionnel fixe, toujours inclus."
+                            aide="Certificats d'Économies d'Énergie. Coût additionnel fixe, toujours inclus."
                             ), unsafe_allow_html=True)
-
-                turpe_dict = TARIFS_TURPE
 
                 with st.expander("Calendrier Heures Pleines / Heures Creuses"):
                     st.caption("Détermine comment chaque instant de vos données est classé dans son cadran "
@@ -1719,20 +1700,17 @@ if fichiers_conso and fichiers_prod:
                 st.markdown("##### Taxes")
                 col_t4, col_t5 = st.columns(2)
                 with col_t4:
-                        st.markdown(carte_indicateur("Accise électricité", 
-                            f"Siège : {accise_eur_mwh_siege/1000:.5f} €/kWh — Bornes : {accise_eur_mwh_bornes/1000:.5f} €/kWh",
-                            "#F5F5F5", "#616161", taille_titre=11, taille_valeur=13,
-                            aide="Taxe qui s'ajoute sur les factures d'électricité, variable selon le profil "
-                                 "réseau choisi pour chaque site."), unsafe_allow_html=True)
+                    st.markdown(carte_indicateur("Accise électricité",
+                        f"Siège : {accise_eur_mwh_siege/1000:.5f} €/kWh — Bornes : {accise_eur_mwh_bornes/1000:.5f} €/kWh",
+                        "#F5F5F5", "#616161", taille_titre=11, taille_valeur=13,
+                        aide="Taxe qui s'ajoute sur les factures d'électricité, variable selon le profil "
+                             "réseau choisi pour chaque site."), unsafe_allow_html=True)
                 taux_tva = col_t5.number_input("TVA (%)", min_value=0.0, max_value=25.0, value=20.0, step=0.1,
                     key="taux_tva_input") / 100.0
 
-                
-
                 dt_actuel = (df.index[1] - df.index[0]).total_seconds() / 3600.0
                 conso_siege_seule = df["conso_kW"] - df["conso_bornes_kW"] if "conso_bornes_kW" in df.columns else df["conso_kW"]
-                
-                
+
                 prix_ttc_siege, _ = prix_moyen_pondere_ttc(conso_siege_seule, dt_actuel, segment_siege, cadran_siege,
                     True, accise_eur_mwh_siege, taux_tva, turpe_dict_siege,
                     mois_saison_haute_num, heure_debut_hc_haute, heure_fin_hc_haute,
@@ -1744,8 +1722,6 @@ if fichiers_conso and fichiers_prod:
                         heure_debut_hc_basse, heure_fin_hc_basse)
                 else:
                     prix_ttc_bornes = prix_ttc_siege
-
-                
 
                 volume_siege = conso_siege_seule.sum() * dt_actuel
                 volume_bornes = df["conso_bornes_kW"].sum() * dt_actuel if "conso_bornes_kW" in df.columns else 0
