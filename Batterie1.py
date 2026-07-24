@@ -1946,30 +1946,25 @@ if fichiers_conso and fichiers_prod:
                 # kpi_sans = calculer_kpi(df_sans_batt, dt_sans, prix_imp, prix_exp) 
                 
                 # Récupération des valeurs clés (à adapter selon le nom exact de tes colonnes/fonctions)
+                # On sécurise la consommation en kWh
                 conso_totale = df["conso_kW"].sum() * dt_sans if "conso_kW" in df.columns else 1
                 
-                
-                # On sécurise la consommation (kW ou MW)
-                if "conso_kW" in df.columns:
-                    conso_totale = df["conso_kW"].sum() * dt_sans
-                else:
-                    conso_totale = df["conso_MW"].sum() * dt_sans * 1000
-                
-                # 1. Calculs SANS batterie (en appelant les colonnes _MW et en multipliant par 1000)
-                autoconso_kwh_sans = df_sans_batt["autoconso_directe_MW"].sum() * dt_sans * 1000
-                import_kwh_sans = df_sans_batt["import_MW"].sum() * dt_sans * 1000
-                export_kwh_sans = df_sans_batt["export_MW"].sum() * dt_sans * 1000
+                # 1. Calculs SANS batterie (avec les bons noms de colonnes de ta fonction)
+                autoconso_kwh_sans = df_sans_batt["Autoconso_Totale_kW"].sum() * dt_sans
+                import_kwh_sans = df_sans_batt["Import_Reseau_kW"].sum() * dt_sans
+                export_kwh_sans = df_sans_batt["Export_Reseau_kW"].sum() * dt_sans
                 tap_sans = (autoconso_kwh_sans / conso_totale) * 100 if conso_totale > 0 else 0
                 
                 facture_sans = (import_kwh_sans * prix_ttc_moyen - export_kwh_sans * prix_vente_reseau)
 
-                # 2. Calculs AVEC batterie (idem, colonnes _MW * 1000)
-                autoconso_kwh_avec = (df_simu_etude["autoconso_directe_MW"].sum() + df_simu_etude["batt_decharge_MW"].sum()) * dt_etude * 1000
-                import_kwh_avec = df_simu_etude["import_MW"].sum() * dt_etude * 1000
-                export_kwh_avec = df_simu_etude["export_MW"].sum() * dt_etude * 1000
+                # 2. Calculs AVEC batterie
+                autoconso_kwh_avec = df_simu_etude["Autoconso_Totale_kW"].sum() * dt_etude
+                import_kwh_avec = df_simu_etude["Import_Reseau_kW"].sum() * dt_etude
+                export_kwh_avec = df_simu_etude["Export_Reseau_kW"].sum() * dt_etude
                 tap_avec = (autoconso_kwh_avec / conso_totale) * 100 if conso_totale > 0 else 0
                 
                 facture_avec = (import_kwh_avec * prix_ttc_moyen_decharge - export_kwh_avec * prix_vente_reseau)
+                
 
                 # 3. Affichage des deltas
                 c1, c2, c3 = st.columns(3)
@@ -2015,5 +2010,5 @@ if fichiers_conso and fichiers_prod:
                     f"par rapport à une installation de production pure sans stockage."
                 )
 else:
-    st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")# -*- coding: utf-8 -*-
+    st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
  
