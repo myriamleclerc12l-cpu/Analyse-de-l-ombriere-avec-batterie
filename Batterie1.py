@@ -648,6 +648,21 @@ def aligner_pas_30min(serie):
     if pas_natif > pas_cible:
         serie_alignee = serie_alignee.ffill()
     return serie_alignee
+
+def extraire_soc_a_heure(df_simu, heure):
+    """Extrait, pour chaque jour, l'état de charge (%) au pas de temps le plus proche de l'heure donnée."""
+    minutes_cible = heure.hour * 60 + heure.minute
+    minutes_donnees = df_simu.index.hour * 60 + df_simu.index.minute
+    ecart_brut = np.abs(minutes_donnees - minutes_cible)
+    ecart_minutes = np.minimum(ecart_brut, 1440 - ecart_brut)  # gère le passage minuit
+    df_temp = pd.DataFrame({
+        "date": df_simu.index,
+        "jour": df_simu.index.date,
+        "SoC_pourcent": df_simu["SoC_pourcent"].values,
+        "ecart_minutes": ecart_minutes,
+    })
+    idx_plus_proche = df_temp.groupby("jour")["ecart_minutes"].idxmin()
+    return df_temp.loc[idx_plus_proche].set_index("date")["SoC_pourcent"].sort_index()
 # ==========================================
 # TARIFS BPU OCTOPUS ENERGY — Année 2026
 # ==========================================
@@ -1104,6 +1119,42 @@ if fichiers_conso and fichiers_prod:
         fig_soc_heure.update_yaxes(range=[0, 105])
         fig_soc_heure.update_xaxes(type="date")
         st.plotly_chart(fig_soc_heure, use_container_width=True)
+        
+        st.markdown("---")
+        st.subheader("État de charge à plusieurs heures fixes, superposées")
+
+        nb_horaires = st.number_input("Nombre d'horaires à comparer", min_value=1, max_value=6,
+            value=3, step=1, key="nb_horaires_soc")
+
+        heures_par_defaut = [pd.Timestamp("08:00").time(), pd.Timestamp("14:00").time(),
+                              pd.Timestamp("20:00").time(), pd.Timestamp("02:00").time(),
+                              pd.Timestamp("11:00").time(), pd.Timestamp("17:00").time()]
+        col_horaires = st.columns(int(nb_horaires))
+        heures_choisies = []
+        for i in range(int(nb_horaires)):
+            with col_horaires[i]:
+                h = st.time_input(f"Horaire {i+1}", value=heures_par_defaut[i % len(heures_par_defaut)],
+                    key=f"heure_multi_{i}")
+                heures_choisies.append(h)
+
+        palette_horaires = ["purple", "#E67E22", "#16A085", "#C0392B", "#2980B9", "#8E44AD"]
+        fig_soc_multi = go.Figure()
+        for i, h in enumerate(heures_choisies):
+            serie_h = extraire_soc_a_heure(df_simu_ld, h)
+            fig_soc_multi.add_trace(go.Scatter(
+                x=serie_h.index, y=serie_h.values, mode="lines",
+                name=h.strftime("%H:%M"),
+                line=dict(color=palette_horaires[i % len(palette_horaires)], width=2)
+            ))
+        fig_soc_multi.update_layout(
+            title="État de charge à plusieurs heures de la journée, superposées",
+            xaxis_title="Jour", yaxis_title="État de charge (%)",
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
+        )
+        fig_soc_multi.update_yaxes(range=[0, 105])
+        fig_soc_multi.update_xaxes(type="date")
+        st.plotly_chart(fig_soc_multi, use_container_width=True)
     # ----------------------------------------------------
     # ONGLET 3 :Etude du Gain de la batterie 
     # ----------------------------------------------------
