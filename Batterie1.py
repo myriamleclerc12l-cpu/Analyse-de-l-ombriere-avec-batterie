@@ -1711,90 +1711,56 @@ if fichiers_conso and fichiers_prod:
 
                 st.markdown(carte_indicateur("Prix moyen pondéré global (évité)", f"{prix_ttc_moyen:.4f} €/kWh",
                     "#E8F5E9", "#2E7D32", taille_titre=14, taille_valeur=32), unsafe_allow_html=True)
-
+                    
             # ----------------------------------------------------------------
-            # SOUS-ONGLET 2 : HYPOTHÈSES ÉCONOMIQUES
+            # SOUS-ONGLET 2 : HYPOTHÈSES GLOBALES
             # ----------------------------------------------------------------
             with sous_tab2:
+                st.markdown("Définissez ici les hypothèses techniques et financières du projet global.")
 
-                with st.container(border=True):
-                    st.markdown("##### Investissement")
-                    col_e1, col_e2, col_e3 = st.columns(3)
+                # 1. Paramètres généraux
+                st.markdown("#####  Paramètres généraux")
+                col_p1, col_p2 = st.columns(2)
+                capacite_etude = col_p1.number_input("Capacité de la batterie étudiée (kWh)", min_value=0.0, max_value=1000.0, value=250.0, step=5.0, key="capacite_etude_input")
+                duree_etude_v2 = col_p2.number_input("Durée d'étude du bilan (années)", min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input")
 
-                    capex_unitaire = col_e1.number_input("Coût unitaire batterie (€/kWh)", min_value=0.0,
-                        value=400.0, step=10.0, key="capex_unitaire_input")
-                    capex_fixe = col_e2.number_input("Coûts fixes d'installation (€)", min_value=0.0,
-                        value=15000.0, step=500.0, key="capex_fixe_input")
-                    nombre_cycles_nominal = col_e3.number_input("Nombre de cycles nominal (garantie fabricant)",
-                        min_value=100, max_value=20000, value=6000, step=100, key="nombre_cycles_input",
-                        help= "**Comment :** cycles/an = énergie déchargée sur l'année (kWh) ÷ capacité de la "
-                            "batterie (kWh). C'est la méthode des « cycles équivalents pleine charge » : "
-                            "chaque petite décharge compte comme une fraction de cycle, qui s'additionne aux "
-                            "autres au fil de l'année — inutile que la batterie aille jusqu'à 0 % puis 100 % "
-                            "pour qu'un cycle « complet » soit compté.\n\n"
-                            "**Pourquoi cette méthode :** une décharge de 20 % de la capacité compte pour "
-                            "0,2 cycle ; dix décharges de 20 % équivalent à 2 cycles complets, peu importe "
-                            "l'ordre ou la taille de chaque décharge — seul le total compte. C'est exactement "
-                            "la convention qu'utilisent les fabricants pour établir leur propre garantie "
-                            "(« 6 000 cycles » signifie 6 000 cycles équivalents pleine charge, pas 6 000 "
-                            "vidages complets), donc comparer notre calcul à leur nombre de cycles nominal "
-                            "est cohérent.\n\n"
-                            "**Limite à connaître :** ceci suppose une usure uniforme par kWh traversé, quelle "
-                            "que soit la profondeur de chaque décharge — une simplification en l'absence de "
-                            "courbe de dégradation détaillée du fabricant, mais c'est aussi celle qu'ils "
-                            "utilisent eux-mêmes pour convertir un usage réel en équivalent cycles.\n\n"
-                            f"La durée de vie en années est recalculée automatiquement pour chaque capacité à "
-                            f"partir de son propre nombre de cycles réalisés par an, plafonnée à "
-                            f"{DUREE_VIE_MAX_ANS} ans (durée de vie calendaire réaliste, même si le cycle "
-                            "life théorique calculé est plus long).")
+                # 2. CAPEX, Subvention & OPEX
+                st.markdown("#####  Investissement (CAPEX) et Maintenance (OPEX)")
+                col_c1, col_c2 = st.columns(2)
+                capex_brut = col_c1.number_input("CAPEX brut global (€ HT)", min_value=0.0, value=250000.0, step=1000.0, help="Coût total (Production + Batterie) avant aides.")
+                subvention = col_c2.number_input("Subvention (€)", min_value=0.0, value=0.0, step=1000.0, help="Montant des aides, déduit de l'investissement initial.")
+                
+                col_c3, col_c4 = st.columns(2)
+                opex_pct = col_c3.number_input("OPEX annuel (% du CAPEX brut)", min_value=0.0, max_value=20.0, value=1.5, step=0.1) / 100.0
+                taux_inflation_opex = col_c4.number_input("Inflation OPEX (%/an)", min_value=0.0, max_value=10.0, value=1.5, step=0.1) / 100.0
 
+                # ---> Déduction pour le bilan
+                capex_v2 = max(0.0, capex_brut - subvention) # L'investissement net (reste à charge)
+                opex_an1_v2 = capex_brut * opex_pct          # L'entretien se paie sur la valeur matérielle totale
+                
+                st.info(f" **Synthèse :** L'investissement net à financer (CAPEX - Subvention) est de **{capex_v2:,.0f} €**. "
+                        f"L'OPEX Année 1 est de **{opex_an1_v2:,.0f} €**.")
 
-                with st.container(border=True):
-                    st.markdown("##### Exploitation")
-                    col_e4, col_e5, col_e6 = st.columns(3)
-                    opex_pct = col_e4.number_input("OPEX annuel (% du CAPEX)", min_value=0.0, max_value=20.0,
-                        value=1.5, step=0.1, key="opex_pct_input") / 100.0
-                    taux_inflation_opex = col_e5.number_input("Inflation OPEX (%/an)", min_value=0.0,
-                        max_value=10.0, value=1.5, step=0.1, key="taux_inflation_opex_input") / 100.0
-                    degradation_pct = col_e6.number_input("Dégradation batterie (%/an)", min_value=0.0,
-                        max_value=10.0, value=2.0, step=0.1, key="degradation_pct_input") / 100.0
+                # 3. Marché et Batterie
+                st.markdown("#####  Marché et Vieillissement")
+                col_m1, col_m2, col_m3 = st.columns(3)
+                taux_actualisation = col_m1.number_input("Taux d'actualisation (%)", min_value=0.0, max_value=20.0, value=4.0, step=0.1) / 100.0
+                taux_inflation_energie = col_m2.number_input("Inflation prix électricité (%/an)", min_value=0.0, max_value=10.0, value=3.0, step=0.1) / 100.0
+                prix_vente_reseau = col_m3.number_input("Prix de vente au réseau (€/kWh)", min_value=0.0, value=0.0, step=0.01, format="%.3f")
 
-                with st.container(border=True):
-                    st.markdown("##### Marché")
-                    col_e7, col_e8, col_e9 = st.columns(3)
-                    taux_actualisation = col_e7.number_input("Taux d'actualisation (%)", min_value=0.0,
-                        max_value=20.0, value=4.0, step=0.1, key="taux_actualisation_input") / 100.0
-                    taux_inflation_energie = col_e8.number_input("Inflation prix électricité (%/an)",
-                        min_value=0.0, max_value=10.0, value=3.0, step=0.1, key="taux_inflation_energie_input") / 100.0
-                    prix_vente_reseau = col_e9.number_input("Prix de vente au réseau (€/kWh)", min_value=0.0,
-                        value=0.0, step=0.01, format="%.3f", key="prix_vente_reseau_input")
-                    
-                with st.container(border=True):
-                   st.markdown("##### Étude de capacité (Bilan Financier détaillé)")
-                   capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
-                   min_value=0.0, max_value=500.0, value=250.0, step=5.0, key="capacite_etude_input")
-
-                   duree_etude_v2 = st.number_input("Durée d'étude du bilan financier (années)",
-                     min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input",
-                   help="...")
-
-                   opex_an1_v2 = st.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=4600.0, step=100.0,
-                   key="opex_an1_v2_input")
-                   st.caption(f"Inflation OPEX et inflation électricité réutilisées ci-dessus : "
-                       f"{taux_inflation_opex*100:.1f} %/an et {taux_inflation_energie*100:.1f} %/an.")
-
-                   col_v4, col_v5 = st.columns(2)
-                   revenu_producteur_an1 = col_v4.number_input("Coût producteur année 1 (€)",
-                   min_value=0.0, value=0.0, step=10.0, key="revenu_producteur_an1_input",
-                   help="Nature encore à définir. Laissé à 0 par défaut.")
-                   capex_v2 = col_v5.number_input("CAPEX total (€ HT)", min_value=0.0,
-                   value=capacite_etude * 1000.0, step=1000.0, key="capex_v2_input",
-                   help="Valeur fictive par défaut (1 000 €/kWh).")
-
+                col_m4, col_m5 = st.columns(2)
+                degradation_pct = col_m4.number_input("Dégradation batterie (%/an)", min_value=0.0, max_value=10.0, value=2.0, step=0.1) / 100.0
+                nombre_cycles_nominal = col_m5.number_input("Cycles nominaux (garantie)", min_value=100, max_value=20000, value=6000, step=100,
+                    help="**Comment :** cycles/an = énergie déchargée sur l'année (kWh) ÷ capacité de la "
+                         "batterie (kWh). C'est la méthode des « cycles équivalents pleine charge » : "
+                         "chaque petite décharge compte comme une fraction de cycle, qui s'additionne aux "
+                         "autres au fil de l'année — inutile que la batterie aille jusqu'à 0 % puis 100 % "
+                         "pour qu'un cycle « complet » soit compté.")
 
                 if prix_vente_reseau >= prix_ttc_moyen:
-                    st.warning("Le prix de vente au réseau est supérieur ou égal au prix d'achat évité : "
-                               "stocker n'a pas de sens économique dans ce cas.")
+                    st.warning(" Le prix de vente au réseau est supérieur ou égal au prix d'achat évité : stocker n'a pas de sens économique dans ce cas.")
+
+
 
            
             # ----------------------------------------------------------------
@@ -1933,14 +1899,12 @@ if fichiers_conso and fichiers_prod:
                     f"{prix_ttc_moyen*100:.2f} c€/kWh")
                 st.download_button(label=" Télécharger le bilan financier en PNG", data=png_buffer,
                     file_name=f"bilan_financier_{capacite_etude:.0f}kWh.png", mime="image/png")
-            # ----------------------------------------------------------------
-            # SOUS-ONGLET 4 : COMPARATIF AVEC VS SANS BATTERIE
-            # ----------------------------------------------------------------
+
             # ----------------------------------------------------------------
             # SOUS-ONGLET 4 : COMPARATIF AVEC VS SANS BATTERIE
             # ----------------------------------------------------------------
             with sous_tab4:
-                st.markdown("### ⚖️ Comparaison des Bilans Financiers")
+                st.markdown("###  Comparaison des Bilans Financiers")
                 st.write("Cet onglet génère les deux plans de trésorerie complets pour comparer la rentabilité globale de l'investissement.")
 
                 # --- 1. Paramétrage SANS Batterie ---
