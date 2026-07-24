@@ -1744,7 +1744,7 @@ if fichiers_conso and fichiers_prod:
                 capex_sans_v2 = capex_sans_batt_hyp
                 opex_sans_an1_v2 = capex_sans_batt_hyp * opex_pct
                 
-                st.info(f" **Sansbatterie :** L'OPEX Année 1 est de ** {opex_sans_an1_v2:,.0f} €**. ")
+                st.info(f" **Sans batterie :** L'OPEX Année 1 est de ** {opex_sans_an1_v2:,.0f} €**. ")
                 st.info(f" **Avec batterie :** L'OPEX Année 1 est de **{opex_an1_v2:,.0f} €**.")
        
 
