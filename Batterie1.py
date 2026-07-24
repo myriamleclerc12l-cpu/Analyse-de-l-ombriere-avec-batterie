@@ -385,23 +385,6 @@ def prix_moyen_pondere_ttc(series_puissance_kw, dt_heures, segment, structure_ca
 
     return prix_moyen_htt * (1 + taux_tva), energie_par_cadran
 
-def prix_moyen_pondere_decharge_ttc(df_simu, dt_heures, segment_siege, cadran_siege, segment_bornes, cadran_bornes,
-                                      volume_siege, volume_bornes, accise_eur_mwh, taux_tva, turpe_dict,
-                                      mois_saison_haute=None, hc_debut_haute=22, hc_fin_haute=6,
-                                      hc_debut_basse=22, hc_fin_basse=6):
-    decharge_series = df_simu["Autoconso_Totale_kW"] - np.minimum(df_simu["conso_kW"], df_simu["prod_kW"])
-
-    prix_decharge_siege, _ = prix_moyen_pondere_ttc(decharge_series, dt_heures, segment_siege, cadran_siege,
-        True, accise_eur_mwh, taux_tva, turpe_dict, mois_saison_haute, hc_debut_haute, hc_fin_haute,
-        hc_debut_basse, hc_fin_basse)
-    prix_decharge_bornes, _ = prix_moyen_pondere_ttc(decharge_series, dt_heures, segment_bornes, cadran_bornes,
-        True, accise_eur_mwh, taux_tva, turpe_dict, mois_saison_haute, hc_debut_haute, hc_fin_haute,
-        hc_debut_basse, hc_fin_basse)
-
-    volume_total = volume_siege + volume_bornes
-    if volume_total > 0:
-        return (prix_decharge_siege * volume_siege + prix_decharge_bornes * volume_bornes) / volume_total
-    return prix_decharge_siege
 
 def calculer_flux_et_indicateurs(gain_net_kwh_an1, capex, opex_annuel_an1, prix_achat_evite_an1, prix_vente_reseau,
                                  taux_actualisation, duree_vie_ans, degradation_pct_an=0.0,
@@ -526,8 +509,16 @@ def choisir_segment_et_cadran(nom_site, key_prefix):
     else:
         cadran = options_cadran[0]
         st.caption(f"Structure de comptage : {cadran} (seule option pour {segment}).")
-    return segment, cadran
 
+    prefixe = PREFIXE_PROFIL_PAR_SEGMENT.get(segment, "C5")
+    options_profil = [k for k in PROFILS_RESEAU if k.startswith(prefixe)]
+    profil_reseau = st.selectbox(f"Profil d'utilisation du réseau — {nom_site}", options_profil,
+        key=f"profil_{key_prefix}",
+        help="Longue Utilisation (LU) : sites à charge élevée et régulière (nombreuses heures "
+             "d'utilisation de la puissance souscrite). Courte Utilisation (CU) : sites à charge plus "
+             "faible ou irrégulière. Détermine le TURPE et l'accise applicables (grille CRE).")
+
+    return segment, cadran, profil_reseau
 def style_van(x):
     return style_indicateur(x, favorable=(not pd.isna(x) and x > 0))
 
@@ -678,21 +669,31 @@ def extraire_soc_a_heure(df_simu, heure):
     return df_temp.loc[idx_plus_proche].set_index("date")["SoC_pourcent"].sort_index()
 
 def prix_moyen_pondere_flux_ttc(flux_series, dt_heures, segment_siege, cadran_siege, segment_bornes, cadran_bornes,
-                                  volume_siege, volume_bornes, accise_eur_mwh, taux_tva, turpe_dict,
+                                  volume_siege, volume_bornes, accise_eur_mwh_siege, accise_eur_mwh_bornes,
+                                  taux_tva, turpe_dict_siege, turpe_dict_bornes,
                                   mois_saison_haute=None, hc_debut_haute=22, hc_fin_haute=6,
                                   hc_debut_basse=22, hc_fin_basse=6):
-    """Pondère par n'importe quel flux d'énergie (pas seulement la décharge batterie)."""
+    """Pondère par n'importe quel flux d'énergie, avec TURPE/accise propres à chaque site."""
     prix_siege, _ = prix_moyen_pondere_ttc(flux_series, dt_heures, segment_siege, cadran_siege,
-        True, accise_eur_mwh, taux_tva, turpe_dict, mois_saison_haute, hc_debut_haute, hc_fin_haute,
+        True, accise_eur_mwh_siege, taux_tva, turpe_dict_siege, mois_saison_haute, hc_debut_haute, hc_fin_haute,
         hc_debut_basse, hc_fin_basse)
     prix_bornes, _ = prix_moyen_pondere_ttc(flux_series, dt_heures, segment_bornes, cadran_bornes,
-        True, accise_eur_mwh, taux_tva, turpe_dict, mois_saison_haute, hc_debut_haute, hc_fin_haute,
+        True, accise_eur_mwh_bornes, taux_tva, turpe_dict_bornes, mois_saison_haute, hc_debut_haute, hc_fin_haute,
         hc_debut_basse, hc_fin_basse)
     volume_total = volume_siege + volume_bornes
     if volume_total > 0:
         return (prix_siege * volume_siege + prix_bornes * volume_bornes) / volume_total
     return prix_siege
 
+def prix_moyen_pondere_decharge_ttc(df_simu, dt_heures, segment_siege, cadran_siege, segment_bornes, cadran_bornes,
+                                      volume_siege, volume_bornes, accise_eur_mwh_siege, accise_eur_mwh_bornes,
+                                      taux_tva, turpe_dict_siege, turpe_dict_bornes,
+                                      mois_saison_haute=None, hc_debut_haute=22, hc_fin_haute=6,
+                                      hc_debut_basse=22, hc_fin_basse=6):
+    decharge_series = df_simu["Autoconso_Totale_kW"] - np.minimum(df_simu["conso_kW"], df_simu["prod_kW"])
+    return prix_moyen_pondere_flux_ttc(decharge_series, dt_heures, segment_siege, cadran_siege, segment_bornes, cadran_bornes,
+        volume_siege, volume_bornes, accise_eur_mwh_siege, accise_eur_mwh_bornes, taux_tva, turpe_dict_siege, turpe_dict_bornes,
+        mois_saison_haute, hc_debut_haute, hc_fin_haute, hc_debut_basse, hc_fin_basse)
 # ==========================================
 # TARIFS BPU OCTOPUS ENERGY — Année 2026
 # ==========================================
@@ -730,18 +731,51 @@ PRIX_GO = 1.49    # €/MWh — Garanties d'Origine
 PRIX_CEE = 11.23  # €/MWh — obligations d'économies d'énergie
 
 # ==========================================
-# TURPE (Acheminement) — valeurs FICTIVES par défaut, à remplacer par la grille CRE réelle du TE13
+# TURPE (Acheminement) ET ACCISE (Taxes)
 # ==========================================
-TARIFS_TURPE = {
-    "HPSh": 0.02130,  # €/kWh — Heures Pleines Saison Haute
-    "HCSh": 0.01520,  # €/kWh — Heures Creuses Saison Haute
-    "HPSb": 0.06910,  # €/kWh — Heures Pleines Saison Basse
-    "HCSb": 0.04210,  # €/kWh — Heures Creuses Saison Basse
+# ==========================================
+# TURPE (Acheminement) ET ACCISE (Taxes)
+# ==========================================
+# ==========================================
+# PROFILS RÉSEAU (TURPE + Accise) — grille CRE réelle, par segment et profil d'utilisation
+# ==========================================
+PROFILS_RESEAU = {
+    "C5 - Longue Utilisation (LU)": {
+        "accise": 0.03085,
+        "turpe": {"HPSh": 0.07000, "HCSh": 0.03730, "HPSb": 0.01610, "HCSb": 0.01110, "Pte": 0.07000}
+    },
+    "C5 - Courte Utilisation (CU)": {
+        "accise": 0.03085,
+        "turpe": {"HPSh": 0.07490, "HCSh": 0.03970, "HPSb": 0.01660, "HCSb": 0.01160, "Pte": 0.07490}
+    },
+    "C4 - Longue Utilisation (LU4)": {
+        "accise": 0.02658,
+        "turpe": {"HPSh": 0.05690, "HCSh": 0.03470, "HPSb": 0.02010, "HCSb": 0.01490, "Pte": 0.05690}
+    },
+    "C4 - Courte Utilisation (CU4)": {
+        "accise": 0.02658,
+        "turpe": {"HPSh": 0.06910, "HCSh": 0.04210, "HPSb": 0.02130, "HCSb": 0.01520, "Pte": 0.06910}
+    },
+    "C2 / HTA - Longue Utilisation (LU5)": {
+        "accise": 0.02658,
+        "turpe": {"HPSh": 0.02100, "HCSh": 0.01470, "HPSb": 0.00920, "HCSb": 0.00680, "Pte": 0.02100}
+    },
+    "C2 / HTA - Courte Utilisation (CU5)": {
+        "accise": 0.02658,
+        "turpe": {"HPSh": 0.04230, "HCSh": 0.01990, "HPSb": 0.01010, "HCSb": 0.00690, "Pte": 0.04230}
+    }
 }
 
-DUREE_VIE_MAX_ANS = 25  # limite réaliste (durée de vie calendaire), même si le cycle life théorique calculé est plus long
+# Fait le lien entre le segment tarifaire (BPU) déjà choisi et les profils applicables ci-dessus
+PREFIXE_PROFIL_PAR_SEGMENT = {
+    "C5 - Bâtiments et équipements": "C5",
+    "C5 - Éclairage public": "C5",
+    "C4": "C4",
+    "C2": "C2 / HTA",
+}
 
-ACCISE_EUR_KWH = 0.03085  # €/kWh
+
+
 # ==========================================
 # 2. INTERFACE STREAMLIT
 # ==========================================
@@ -1555,12 +1589,17 @@ if fichiers_conso and fichiers_prod:
 
                 st.markdown("##### Fourniture — BPU Octopus Energy 2026")
                 SEGMENTS_DISPONIBLES = ["C5 - Bâtiments et équipements", "C4", "C2"]
-
+                    
                 col_t1, col_t2 = st.columns(2)
                 with col_t1:
-                    segment_siege, cadran_siege = choisir_segment_et_cadran("Siège", "siege")
+                    segment_siege, cadran_siege, profil_siege = choisir_segment_et_cadran("Siège", "siege")
                 with col_t2:
-                    segment_bornes, cadran_bornes = choisir_segment_et_cadran("Bornes de recharge", "bornes")
+                    segment_bornes, cadran_bornes, profil_bornes = choisir_segment_et_cadran("Bornes de recharge", "bornes")
+
+                turpe_dict_siege = PROFILS_RESEAU[profil_siege]["turpe"]
+                turpe_dict_bornes = PROFILS_RESEAU[profil_bornes]["turpe"]
+                accise_eur_mwh_siege = PROFILS_RESEAU[profil_siege]["accise"] * 1000.0
+                accise_eur_mwh_bornes = PROFILS_RESEAU[profil_bornes]["accise"] * 1000.0
 
                 aide_cadrans_generique = {
                     "Base": "Tarif unique, valable à toute heure et toute saison.",
@@ -1600,17 +1639,29 @@ if fichiers_conso and fichiers_prod:
                                        "n'est pas encore pris en compte dans le calcul du prix évité "
                                        "(voir l'infobulle du cadran « Pte »).")
 
-                with st.expander("Détail Acheminement (TURPE) et composantes fixes du BPU"):
-                    st.markdown("**TURPE (€/kWh)**")
-                    st.caption("Tarif d'Utilisation des Réseaux Publics d'Électricité : rémunère Enedis "
-                               "pour l'usage du réseau de distribution. Fixé par la CRE, pas par le "
-                               "fournisseur — s'ajoute au prix de fourniture, quel que soit le fournisseur.")
-                    col_turpe = st.columns(4)
-                    for i, cadran in enumerate(["HPSh", "HCSh", "HPSb", "HCSb"]):
-                        with col_turpe[i]:
-                            st.markdown(carte_indicateur(cadran, f"{TARIFS_TURPE[cadran]:.5f}",
+                    with st.expander("Détail Acheminement (TURPE) et composantes fixes du BPU"):
+                        for nom_site, profil, turpe_d in [("Siège", profil_siege, turpe_dict_siege),
+                                                             ("Bornes", profil_bornes, turpe_dict_bornes)]:
+                            st.markdown(f"**TURPE (€/kWh) — {nom_site} ({profil})**")
+                            col_turpe = st.columns(len(turpe_d))
+                            for i, cadran in enumerate(turpe_d.keys()):
+                                with col_turpe[i]:
+                                    st.markdown(carte_indicateur(cadran, f"{turpe_d[cadran]:.5f}",
+                                        "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
+                                        aide=aide_cadrans_generique.get(cadran, "")), unsafe_allow_html=True)
+
+                        st.markdown("**Composantes fixes du BPU**")
+                        col_fix1, col_fix2 = st.columns(2)
+                        with col_fix1:
+                            st.markdown(carte_indicateur("Garanties d'Origine (GO)", f"{PRIX_GO:.2f} €/MWh",
                                 "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
-                                aide=aide_cadrans_generique[cadran]), unsafe_allow_html=True)
+                                aide="Certificat attestant que l'électricité fournie provient de sources "
+                                     "renouvelables. Coût additionnel fixe, toujours inclus."), unsafe_allow_html=True)
+                        with col_fix2:
+                            st.markdown(carte_indicateur("Obligations CEE", f"{PRIX_CEE:.2f} €/MWh",
+                                "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
+                                aide="Certificats d'Économies d'Énergie. Coût additionnel fixe, toujours inclus."
+                                ), unsafe_allow_html=True)
 
                     st.markdown("**Composantes fixes du BPU**")
                     col_fix1, col_fix2 = st.columns(2)
@@ -1668,31 +1719,33 @@ if fichiers_conso and fichiers_prod:
                 st.markdown("##### Taxes")
                 col_t4, col_t5 = st.columns(2)
                 with col_t4:
-                    st.markdown(carte_indicateur("Accise électricité", f"{ACCISE_EUR_KWH:.5f} €/kWh",
-                        "#F5F5F5", "#616161", taille_titre=11, taille_valeur=14,
-                        aide="taxe qui s’ajoute sur les factures d’électricité des usagers en France. "
-                        "Elle est notamment destinée à dédommager les opérateurs des divers surcoûts qu’ils supportent et à financer "
-                        "les politiques de soutien aux énergies renouvelables."
-                        ), unsafe_allow_html=True)
+                        st.markdown(carte_indicateur("Accise électricité", 
+                            f"Siège : {accise_eur_mwh_siege/1000:.5f} €/kWh — Bornes : {accise_eur_mwh_bornes/1000:.5f} €/kWh",
+                            "#F5F5F5", "#616161", taille_titre=11, taille_valeur=13,
+                            aide="Taxe qui s'ajoute sur les factures d'électricité, variable selon le profil "
+                                 "réseau choisi pour chaque site."), unsafe_allow_html=True)
                 taux_tva = col_t5.number_input("TVA (%)", min_value=0.0, max_value=25.0, value=20.0, step=0.1,
                     key="taux_tva_input") / 100.0
 
-                accise_eur_mwh = ACCISE_EUR_KWH * 1000.0
+                
 
                 dt_actuel = (df.index[1] - df.index[0]).total_seconds() / 3600.0
                 conso_siege_seule = df["conso_kW"] - df["conso_bornes_kW"] if "conso_bornes_kW" in df.columns else df["conso_kW"]
-
+                
+                
                 prix_ttc_siege, _ = prix_moyen_pondere_ttc(conso_siege_seule, dt_actuel, segment_siege, cadran_siege,
-                    True, accise_eur_mwh, taux_tva, turpe_dict,
+                    True, accise_eur_mwh_siege, taux_tva, turpe_dict_siege,
                     mois_saison_haute_num, heure_debut_hc_haute, heure_fin_hc_haute,
                     heure_debut_hc_basse, heure_fin_hc_basse)
                 if "conso_bornes_kW" in df.columns and df["conso_bornes_kW"].sum() > 0:
                     prix_ttc_bornes, _ = prix_moyen_pondere_ttc(df["conso_bornes_kW"], dt_actuel, segment_bornes,
-                        cadran_bornes, True, accise_eur_mwh, taux_tva, turpe_dict,
+                        cadran_bornes, True, accise_eur_mwh_bornes, taux_tva, turpe_dict_bornes,
                         mois_saison_haute_num, heure_debut_hc_haute, heure_fin_hc_haute,
                         heure_debut_hc_basse, heure_fin_hc_basse)
                 else:
                     prix_ttc_bornes = prix_ttc_siege
+
+                
 
                 volume_siege = conso_siege_seule.sum() * dt_actuel
                 volume_bornes = df["conso_bornes_kW"].sum() * dt_actuel if "conso_bornes_kW" in df.columns else 0
