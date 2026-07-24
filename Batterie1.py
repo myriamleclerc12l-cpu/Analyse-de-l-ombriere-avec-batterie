@@ -1721,17 +1721,16 @@ if fichiers_conso and fichiers_prod:
             with sous_tab2:
                 st.markdown("Définissez ici les hypothèses techniques et financières du projet global.")
 
-                # 1. Paramètres généraux
-                st.markdown("##### 📏 Paramètres généraux")
-                col_p1, col_p2 = st.columns(2)
-                capacite_etude = col_p1.number_input("Capacité de la batterie étudiée (kWh)", min_value=0.0, max_value=1000.0, value=250.0, step=5.0, key="capacite_etude_input")
-                duree_etude_v2 = col_p2.number_input("Durée d'étude du bilan (années)", min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input")
+               
+                col_p1  = st.columns(1)
+              
+                duree_etude_v2 = col_p1.number_input("Durée d'étude du bilan (années)", min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input")
 
                 # 2. CAPEX, Subvention & OPEX
                 st.markdown("#####  Investissement (CAPEX) et Maintenance (OPEX)")
                 col_c1, col_c2, col_c3 = st.columns(3)
-                capex_brut = col_c1.number_input("CAPEX brut global AVEC batterie (€ HT)", min_value=0.0, value=250000.0, step=1000.0, help="Coût total de l'installation (Production + Stockage).")
-                capex_sans_batt_hyp = col_c2.number_input("CAPEX brut SANS batterie (€ HT)", min_value=0.0, value=150000.0, step=1000.0, help="Sert de référence pour calculer l'apport spécifique du stockage dans l'onglet 4.")
+                capex_brut = col_c1.number_input("CAPEX AVEC batterie (€ HT)", min_value=0.0, value=250000.0, step=1000.0, help="Coût total de l'installation (Production + Stockage).")
+                capex_sans_batt_hyp = col_c2.number_input("CAPEX  SANS batterie (€ HT)", min_value=0.0, value=150000.0, step=1000.0, help="Sert de référence pour calculer l'apport spécifique du stockage dans l'onglet 4.")
                 subvention = col_c3.number_input("Subvention globale (€)", min_value=0.0, value=0.0, step=1000.0, help="Montant des aides, déduit de l'investissement initial.")
                 
                 col_c4, col_c5 = st.columns(2)
@@ -1749,16 +1748,19 @@ if fichiers_conso and fichiers_prod:
                 st.info(f" **Synthèse AVEC batterie :** L'investissement net à financer est de **{capex_v2:,.0f} €**. "
                         f"L'OPEX Année 1 est de **{opex_an1_v2:,.0f} €**.")
 
-                # 3. Marché et Batterie
-                st.markdown("#####  Marché et Vieillissement")
+                # 3. Marché 
+                st.markdown("#####  Marché")
                 col_m1, col_m2, col_m3 = st.columns(3)
                 taux_actualisation = col_m1.number_input("Taux d'actualisation (%)", min_value=0.0, max_value=20.0, value=4.0, step=0.1) / 100.0
                 taux_inflation_energie = col_m2.number_input("Inflation prix électricité (%/an)", min_value=0.0, max_value=10.0, value=3.0, step=0.1) / 100.0
                 prix_vente_reseau = col_m3.number_input("Prix de vente au réseau (€/kWh)", min_value=0.0, value=0.0, step=0.01, format="%.3f")
-
+                
+                # 4. Batterie
+                st.markdown("#####  Caractéristiques batterie")
                 col_m4, col_m5 = st.columns(2)
+                capacite_etude = col_p1.number_input("Capacité de la batterie étudiée (kWh)", min_value=0.0, max_value=1000.0, value=250.0, step=5.0, key="capacite_etude_input")
                 degradation_pct = col_m4.number_input("Dégradation batterie (%/an)", min_value=0.0, max_value=10.0, value=2.0, step=0.1) / 100.0
-                nombre_cycles_nominal = col_m5.number_input("Cycles nominaux (garantie)", min_value=100, max_value=20000, value=6000, step=100)
+                nombre_cycles_nominal = col_m5.number_input("Cycles batterie", min_value=100, max_value=20000, value=6000, step=100)
 
                 if prix_vente_reseau >= prix_ttc_moyen:
                     st.warning(" Le prix de vente au réseau est supérieur ou égal au prix d'achat évité : stocker n'a pas de sens économique dans ce cas.")
@@ -1903,9 +1905,7 @@ if fichiers_conso and fichiers_prod:
                 st.download_button(label=" Télécharger le bilan financier en PNG", data=png_buffer,
                     file_name=f"bilan_financier_{capacite_etude:.0f}kWh.png", mime="image/png")
 
-            # ----------------------------------------------------------------
-            # SOUS-ONGLET 4 : COMPARATIF AVEC VS SANS BATTERIE
-            # ----------------------------------------------------------------
+
             # ----------------------------------------------------------------
             # SOUS-ONGLET 4 : COMPARATIF AVEC VS SANS BATTERIE
             # ----------------------------------------------------------------
