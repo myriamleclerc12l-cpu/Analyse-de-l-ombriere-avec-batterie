@@ -1539,8 +1539,8 @@ if fichiers_conso and fichiers_prod:
             # ==========================================================
             # SOUS-ONGLETS
             # ==========================================================
-            sous_tab1, sous_tab2, sous_tab3, sous_tab4 = st.tabs([
-                "1. Tarification", "2. Hypothèses", "3. Comparaison des capacités", "4. Bilan Financier"
+            sous_tab1, sous_tab2, sous_tab3 = st.tabs([
+                "1. Tarification", "2. Hypothèses", "4. Bilan Financier"
             ])
 
             # ----------------------------------------------------------------
@@ -1771,115 +1771,9 @@ if fichiers_conso and fichiers_prod:
                     st.warning("Le prix de vente au réseau est supérieur ou égal au prix d'achat évité : "
                                "stocker n'a pas de sens économique dans ce cas.")
 
+           
             # ----------------------------------------------------------------
-            # SOUS-ONGLET 3 : COMPARAISON DES CAPACITÉS
-            # ----------------------------------------------------------------
-            with sous_tab3:
-                st.caption("Le prix « avec batterie » utilisé ici reste pondéré par la consommation "
-                           "totale du site (approximation, pour rester rapide sur ~100 capacités). Le "
-                           "prix « sans batterie » est pondéré précisément par l'autoconsommation directe "
-                           "seule — un petit écart entre les deux peut donc subsister même à 0 kWh.")
-
-                autoconso_directe_ref = np.minimum(df["conso_kW"], df["prod_kW"])
-                energie_sans_kwh = autoconso_directe_ref.sum() * dt_actuel
-                prix_sans = prix_moyen_pondere_flux_ttc(autoconso_directe_ref, dt_actuel,
-                    segment_siege, cadran_siege, segment_bornes, cadran_bornes,
-                    volume_siege, volume_bornes, accise_eur_mwh, taux_tva, turpe_dict,
-                    mois_saison_haute_num, heure_debut_hc_haute, heure_fin_hc_haute,
-                    heure_debut_hc_basse, heure_fin_hc_basse)
-
-                col_ref1, col_ref2 = st.columns(2)
-                capex_sans_t3 = col_ref1.number_input("CAPEX du scénario sans batterie (€ HT)",
-                    min_value=0.0, value=0.0, step=1000.0, key="capex_sans_t3_input",
-                    help="Investissement de référence, sans batterie (0 € si l'ombrière est déjà "
-                         "financée séparément, ou le coût complet si vous voulez le système entier).")
-                opex_sans_t3 = col_ref2.number_input("OPEX annuel du scénario sans batterie (€ HT)",
-                    min_value=0.0, value=0.0, step=100.0, key="opex_sans_t3_input")
-
-                indic_sans = calculer_flux_et_indicateurs(
-                    energie_sans_kwh, capex_sans_t3, opex_sans_t3, prix_sans, prix_vente_reseau,
-                    taux_actualisation, DUREE_VIE_MAX_ANS, 0.0, taux_inflation_energie, taux_inflation_opex
-                )
-
-                st.markdown(carte_indicateur("VAN de référence (sans batterie)", f"{indic_sans['van']:,.0f} €",
-                    "#F5F5F5", "#616161"), unsafe_allow_html=True)
-
-                resultats_eco = []
-                for _, row in df_res_t4.iterrows():
-                    cap = row["Capacité (kWh)"]
-                    energie_avec_kwh = row["Autoconso Totale (kWh)"]
-                    cycles_par_an = row["Cycles par an"]
-                    if cap > 0:
-                        duree_vie_capacite = int(round(min(nombre_cycles_nominal / cycles_par_an, DUREE_VIE_MAX_ANS)
-                                                          if cycles_par_an > 0 else DUREE_VIE_MAX_ANS))
-                        capex_batterie = capex_unitaire * cap + capex_fixe
-                    else:
-                        duree_vie_capacite = DUREE_VIE_MAX_ANS
-                        capex_batterie = 0.0
-                    capex_avec = capex_sans_t3 + capex_batterie
-                    opex_annuel_avec = opex_sans_t3 + capex_batterie * opex_pct
-                    indic_avec = calculer_flux_et_indicateurs(
-                        energie_avec_kwh, capex_avec, opex_annuel_avec, prix_ttc_moyen, prix_vente_reseau,
-                        taux_actualisation, duree_vie_capacite, degradation_pct,
-                        taux_inflation_energie, taux_inflation_opex
-                    )
-                    resultats_eco.append({
-                        "Capacité (kWh)": cap, "CAPEX total (€)": capex_avec,
-                        "Durée de vie (années)": duree_vie_capacite,
-                        "VAN avec batterie (€)": indic_avec["van"],
-                        "VAN apport batterie (€)": indic_avec["van"] - indic_sans["van"],
-                        "TRI (%)": indic_avec["tri"], "LCOE (€/kWh)": indic_avec["lcos"],
-                        "TRB (années)": indic_avec["payback"], "Ratio B/C": indic_avec["ratio_bc"],
-                    })
-                df_eco = pd.DataFrame(resultats_eco)
-
-                range_van, range_tri = calculer_ranges_alignes(df_eco["VAN apport batterie (€)"].values, df_eco["TRI (%)"].values)
-
-                idx_optimal = df_eco["VAN apport batterie (€)"].idxmax()
-                cap_optimale = df_eco.loc[idx_optimal, "Capacité (kWh)"]
-                van_optimale = df_eco.loc[idx_optimal, "VAN apport batterie (€)"]
-                if van_optimale > 0:
-                    st.success(f"### Capacité économiquement optimale : {cap_optimale:.0f} kWh "
-                               f"(apport VAN maximal de la batterie : {van_optimale:,.0f} €)")
-                else:
-                    st.error(f"### Aucune capacité testée n'apporte de valeur par rapport au scénario "
-                             f"sans batterie (le moins mauvais apport est de {van_optimale:,.0f} € à {cap_optimale:.0f} kWh)")
-
-                fig_eco = make_subplots(specs=[[{"secondary_y": True}]])
-                fig_eco.add_trace(go.Scatter(x=df_eco["Capacité (kWh)"], y=df_eco["VAN apport batterie (€)"], mode="lines+markers",
-                    name="VAN apport batterie (€)", fill="tozeroy", line=dict(color="green", width=3)), secondary_y=False)
-                fig_eco.add_trace(go.Scatter(x=df_eco["Capacité (kWh)"], y=df_eco["TRI (%)"], mode="lines",
-                    name="TRI (%)", line=dict(color="blue", width=2, dash="dash")), secondary_y=True)
-                fig_eco.add_hline(y=0, line_dash="dot", line_color="red", secondary_y=False)
-                fig_eco.update_layout(title="Apport de la batterie (VAN) et TRI en fonction de la capacité",
-                    xaxis_title="Taille de la batterie simulée (kWh)", hovermode="x unified")
-                fig_eco.update_yaxes(title_text="VAN apport batterie (€)", range=range_van, secondary_y=False)
-                fig_eco.update_yaxes(title_text="TRI (%)", range=range_tri, secondary_y=True)
-                st.plotly_chart(fig_eco, use_container_width=True)
-
-                st.subheader("Tableau récapitulatif par capacité testée")
-
-                def fmt_eur0(x):
-                    return "" if pd.isna(x) else f"{x:,.0f}"
-                def fmt_num1(x):
-                    return "" if pd.isna(x) else f"{x:.1f}"
-                def fmt_num2(x):
-                    return "" if pd.isna(x) else f"{x:.2f}"
-                def fmt_num3(x):
-                    return "" if pd.isna(x) else f"{x:.3f}"
-
-                st.dataframe(df_eco.style.format({
-                    "CAPEX total (€)": fmt_eur0, "VAN avec batterie (€)": fmt_eur0,
-                    "VAN apport batterie (€)": fmt_eur0, "TRI (%)": fmt_num1,
-                    "LCOE (€/kWh)": fmt_num3, "TRB (années)": fmt_num1, "Ratio B/C": fmt_num2,
-                }).map(style_van, subset=["VAN apport batterie (€)"]
-                ).map(style_tri, subset=["TRI (%)"]
-                ).map(style_lcos, subset=["LCOE (€/kWh)"]
-                ).map(style_payback, subset=["TRB (années)"]
-                ).map(style_ratio_bc, subset=["Ratio B/C"]))
-
-            # ----------------------------------------------------------------
-            # SOUS-ONGLET 4 : DÉTAIL (FORMAT ENOLAB)
+            # SOUS-ONGLET 3 : DÉTAIL (FORMAT ENOLAB)
             # ----------------------------------------------------------------
             with sous_tab4:
                 capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
