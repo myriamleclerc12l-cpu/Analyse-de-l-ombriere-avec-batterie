@@ -1721,11 +1721,10 @@ if fichiers_conso and fichiers_prod:
             with sous_tab2:
                 st.markdown("Définissez ici les hypothèses techniques et financières du projet global.")
 
-               
-                col_p1  = st.columns(1)
+                # 1. Paramètres généraux
+                st.markdown("##### Paramètres généraux")
+                duree_etude_v2 = st.number_input("Durée d'étude du bilan (années)", min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input")
               
-                duree_etude_v2 = col_p1.number_input("Durée d'étude du bilan (années)", min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input")
-
                 # 2. CAPEX, Subvention & OPEX
                 st.markdown("#####  Investissement (CAPEX) et Maintenance (OPEX)")
                 col_c1, col_c2, col_c3 = st.columns(3)
