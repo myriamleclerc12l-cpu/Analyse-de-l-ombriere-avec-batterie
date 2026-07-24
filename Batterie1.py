@@ -1948,18 +1948,26 @@ if fichiers_conso and fichiers_prod:
                 # Récupération des valeurs clés (à adapter selon le nom exact de tes colonnes/fonctions)
                 conso_totale = df["conso_kW"].sum() * dt_sans if "conso_kW" in df.columns else 1
                 
-                autoconso_kwh_sans = df_sans_batt["autoconso_directe_kW"].sum() * dt_sans
-                import_kwh_sans = df_sans_batt["import_kW"].sum() * dt_sans
-                export_kwh_sans = df_sans_batt["export_kW"].sum() * dt_sans
-                tap_sans = (autoconso_kwh_sans / conso_totale) * 100
+                
+                # On sécurise la consommation (kW ou MW)
+                if "conso_kW" in df.columns:
+                    conso_totale = df["conso_kW"].sum() * dt_sans
+                else:
+                    conso_totale = df["conso_MW"].sum() * dt_sans * 1000
+                
+                # 1. Calculs SANS batterie (en appelant les colonnes _MW et en multipliant par 1000)
+                autoconso_kwh_sans = df_sans_batt["autoconso_directe_MW"].sum() * dt_sans * 1000
+                import_kwh_sans = df_sans_batt["import_MW"].sum() * dt_sans * 1000
+                export_kwh_sans = df_sans_batt["export_MW"].sum() * dt_sans * 1000
+                tap_sans = (autoconso_kwh_sans / conso_totale) * 100 if conso_totale > 0 else 0
                 
                 facture_sans = (import_kwh_sans * prix_ttc_moyen - export_kwh_sans * prix_vente_reseau)
 
-                # 2. Simulation AVEC batterie (déjà calculée dans le sous_tab3 via df_simu_etude)
-                autoconso_kwh_avec = df_simu_etude["autoconso_directe_kW"].sum() * dt_etude + df_simu_etude["batt_decharge_kW"].sum() * dt_etude
-                import_kwh_avec = df_simu_etude["import_kW"].sum() * dt_etude
-                export_kwh_avec = df_simu_etude["export_kW"].sum() * dt_etude
-                tap_avec = (autoconso_kwh_avec / conso_totale) * 100
+                # 2. Calculs AVEC batterie (idem, colonnes _MW * 1000)
+                autoconso_kwh_avec = (df_simu_etude["autoconso_directe_MW"].sum() + df_simu_etude["batt_decharge_MW"].sum()) * dt_etude * 1000
+                import_kwh_avec = df_simu_etude["import_MW"].sum() * dt_etude * 1000
+                export_kwh_avec = df_simu_etude["export_MW"].sum() * dt_etude * 1000
+                tap_avec = (autoconso_kwh_avec / conso_totale) * 100 if conso_totale > 0 else 0
                 
                 facture_avec = (import_kwh_avec * prix_ttc_moyen_decharge - export_kwh_avec * prix_vente_reseau)
 
