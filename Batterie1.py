@@ -71,8 +71,10 @@ def charger_donnees_reelles(files_conso, files_prod, file_bornes):
             df_f["date"] = pd.to_datetime(df_f["date"], utc=True)
             df_f.set_index("date", inplace=True)
             df_f["valeur_W"] = pd.to_numeric(df_f["valeur_W"], errors='coerce').fillna(0)
+            serie = df_f["valeur_W"].sort_index()
+            serie = aligner_pas_30min(serie)
             nom = nom_unique(f.name, deja_utilises)
-            series_dict[nom] = df_f["valeur_W"]
+            series_dict[nom] = serie
         return series_dict
 
     conso_dict = charger_fichiers(files_conso)
@@ -627,6 +629,25 @@ def generer_png_enolab(df_enolab, capacite_etude, capex, tri_texte, lcos_texte, 
     plt.close(fig)
     buffer.seek(0)
     return buffer
+
+def aligner_pas_30min(serie):
+    """
+    Aligne une série temporelle sur un pas de 30 minutes.
+    - Pas natif plus fin (ex: 10 ou 15 min) : moyenne par bloc de 30 min.
+    - Pas natif plus grossier (ex: 60 min) : la puissance est supposée constante
+      jusqu'à la donnée suivante (report de la dernière valeur connue).
+    - Pas natif déjà de 30 min : inchangé.
+    """
+    if len(serie) < 2:
+        return serie
+    pas_natif = serie.index[1] - serie.index[0]
+    pas_cible = pd.Timedelta(minutes=30)
+    if pas_natif == pas_cible:
+        return serie
+    serie_alignee = serie.resample(pas_cible).mean()
+    if pas_natif > pas_cible:
+        serie_alignee = serie_alignee.ffill()
+    return serie_alignee
 # ==========================================
 # TARIFS BPU OCTOPUS ENERGY — Année 2026
 # ==========================================
