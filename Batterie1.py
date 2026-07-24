@@ -1726,7 +1726,7 @@ if fichiers_conso and fichiers_prod:
                 duree_etude_v2 = st.number_input("Durée d'étude du bilan (années)", min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input")
               
                 # 2. CAPEX, Subvention & OPEX
-                st.markdown("#####  Investissement (CAPEX) et Maintenance (OPEX)")
+                st.markdown("#####  Investissement  et Maintenance ")
                 col_c1, col_c2, col_c3 = st.columns(3)
                 capex_brut = col_c1.number_input("CAPEX AVEC batterie (€ HT)", min_value=0.0, value=250000.0, step=1000.0, help="Coût total de l'installation (Production + Stockage).")
                 capex_sans_batt_hyp = col_c2.number_input("CAPEX  SANS batterie (€ HT)", min_value=0.0, value=150000.0, step=1000.0, help="Sert de référence pour calculer l'apport spécifique du stockage dans l'onglet 4.")
@@ -1743,9 +1743,10 @@ if fichiers_conso and fichiers_prod:
                 # ---> Déduction pour le bilan SANS batterie (utilisé onglet 4)
                 capex_sans_v2 = capex_sans_batt_hyp
                 opex_sans_an1_v2 = capex_sans_batt_hyp * opex_pct
-
-                st.info(f" **Synthèse AVEC batterie :** L'investissement net à financer est de **{capex_v2:,.0f} €**. "
-                        f"L'OPEX Année 1 est de **{opex_an1_v2:,.0f} €**.")
+                
+                st.info(f" **Sansbatterie :** L'OPEX Année 1 est de ** {opex_sans_an1_v2:,.0f} €**. ")
+                st.info(f" **Avec batterie :** L'OPEX Année 1 est de **{opex_an1_v2:,.0f} €**.")
+       
 
                 # 3. Marché 
                 st.markdown("#####  Marché")
