@@ -1766,6 +1766,29 @@ if fichiers_conso and fichiers_prod:
                         min_value=0.0, max_value=10.0, value=3.0, step=0.1, key="taux_inflation_energie_input") / 100.0
                     prix_vente_reseau = col_e9.number_input("Prix de vente au réseau (€/kWh)", min_value=0.0,
                         value=0.0, step=0.01, format="%.3f", key="prix_vente_reseau_input")
+                    
+                with st.container(border=True):
+                   st.markdown("##### Étude de capacité (Bilan Financier détaillé)")
+                   capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
+                   min_value=0.0, max_value=500.0, value=250.0, step=5.0, key="capacite_etude_input")
+
+                   duree_etude_v2 = st.number_input("Durée d'étude du bilan financier (années)",
+                     min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input",
+                   help="...")
+
+                   opex_an1_v2 = st.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=4600.0, step=100.0,
+                   key="opex_an1_v2_input")
+                   st.caption(f"Inflation OPEX et inflation électricité réutilisées ci-dessus : "
+                       f"{taux_inflation_opex*100:.1f} %/an et {taux_inflation_energie*100:.1f} %/an.")
+
+                   col_v4, col_v5 = st.columns(2)
+                   revenu_producteur_an1 = col_v4.number_input("Coût producteur année 1 (€)",
+                   min_value=0.0, value=0.0, step=10.0, key="revenu_producteur_an1_input",
+                   help="Nature encore à définir. Laissé à 0 par défaut.")
+                   capex_v2 = col_v5.number_input("CAPEX total (€ HT)", min_value=0.0,
+                   value=capacite_etude * 1000.0, step=1000.0, key="capex_v2_input",
+                   help="Valeur fictive par défaut (1 000 €/kWh).")
+
 
                 if prix_vente_reseau >= prix_ttc_moyen:
                     st.warning("Le prix de vente au réseau est supérieur ou égal au prix d'achat évité : "
@@ -1778,30 +1801,28 @@ if fichiers_conso and fichiers_prod:
             with sous_tab3:
                 
                 
-                capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
-                    min_value=0.0, max_value=500.0, value=250.0, step=5.0, key="capacite_etude_input")
-                ligne_capacite = df_res_t4.iloc[(df_res_t4["Capacité (kWh)"] - capacite_etude).abs().argsort()[:1]].iloc[0]
-                gain_net_kwh_reel = ligne_capacite["Gain Énergétique (kWh)"]
-                gain_global_kwh_reel = ligne_capacite["Autoconso Totale (kWh)"]
+               
 
-                duree_etude_v2 = st.number_input("Durée d'étude du bilan financier (années)",
-                    min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input",
-                    help="Indépendante de la « Durée de vie » du sous-onglet Hypothèses (utilisée pour la "
-                         "VAN/TRI du sous-onglet 3). Ici, c'est l'horizon du plan de trésorerie détaillé.")
+                st.caption(
+        f"Capacité étudiée : {capacite_etude:.0f} kWh - "
+        f"Durée d'étude : {duree_etude_v2} ans - "
+        f"OPEX année 1 : {opex_an1_v2:,.0f} € - "
+        f"CAPEX total : {capex_v2:,.0f} € "
+        f"(paramètres définis dans le sous-onglet « 2. Hypothèses »)."
+                )
 
-                opex_an1_v2 = st.number_input("OPEX année 1 (€ HT)", min_value=0.0, value=4600.0, step=100.0,
-                    key="opex_an1_v2_input")
-                st.caption(f"Inflation OPEX et inflation électricité réutilisées depuis l'onglet "
-                           f"« 2. Hypothèses » : {taux_inflation_opex*100:.1f} %/an et "
-                           f"{taux_inflation_energie*100:.1f} %/an.")
+                ligne_capacite = df_res_t4.iloc[
+                (df_res_t4["Capacité (kWh)"] - capacite_etude)
+                .abs()
+                .argsort()[:1]
+                ].iloc[0]
 
-                col_v4, col_v5 = st.columns(2)
-                revenu_producteur_an1 = col_v4.number_input("Coût producteur année 1 (€)",
-                    min_value=0.0, value=0.0, step=10.0, key="revenu_producteur_an1_input",
-                    help="Nature encore à définir. Laissé à 0 par défaut.")
-                capex_v2 = col_v5.number_input("CAPEX total (€ HT)", min_value=0.0,
-                    value=capacite_etude * 1000.0, step=1000.0, key="capex_v2_input",
-                    help="Valeur fictive par défaut (1 000 €/kWh).")
+                gain_global_kwh_reel = ligne_capacite[
+        "Autoconso Totale (kWh)"
+                ]
+
+                puissance_onduleur_etude = capacite_etude / 2.0
+
 
                 puissance_onduleur_etude = capacite_etude / 2.0
                 df_simu_etude, dt_etude = simuler_systeme_avec_batterie(df, capacite_etude, puissance_onduleur_etude, 0)
