@@ -1515,16 +1515,16 @@ if fichiers_conso and fichiers_prod:
     # ----------------------------------------------------
 
     with tab5:
-        st.header("Analyse Économique ", help=(
-            "**Comment lire cet onglet :** il se déroule en 4 étapes, dans les sous-onglets ci-dessous.\n\n"
-            "1. **Tarification** — calcule le prix réel de l'électricité évitée (€/kWh), à partir du BPU Octopus, du TURPE et des taxes.\n\n"
-            "2. **Hypothèses** — les paramètres d'investissement (CAPEX, OPEX, taux d'actualisation, dégradation...), à ajuster.\n\n"
-            "3. **Etude de la capacité** — VAN, TRI et LCOE pour chaque capacité testée, afin d'identifier la capacité économiquement optimale.\n\n"
-            "4. **Bilan économique** — un plan de trésorerie année par année, pour une capacité choisie individuellement."
+        st.header("Analyse Économique Globale", help=(
+            "**Comment lire cet onglet :** il se déroule en 4 étapes.\n\n"
+            "1. **Tarification** — calcule le prix réel de l'électricité.\n\n"
+            "2. **Hypothèses globales** — les paramètres d'investissement de TOUT le système (EnR + Batterie).\n\n"
+            "3. **Bilan Financier** — VAN, TRI et LCOE pour le projet complet.\n\n"
+            "4. **Avec vs Sans Batterie** — isole la valeur ajoutée du stockage dans le mix."
         ))
         st.markdown("""
-        Cet onglet valorise financièrement le gain énergétique de la batterie (calculé dans l'onglet 4)
-        pour déterminer si — et à quelle capacité — l'investissement est rentable.
+        Cet onglet valorise financièrement votre mix énergétique complet (production + stockage) 
+        afin d'évaluer la rentabilité globale du projet, puis isole l'impact spécifique de la batterie.
         """)
 
         if "df_resultats_t4" not in st.session_state:
@@ -1539,10 +1539,12 @@ if fichiers_conso and fichiers_prod:
             # ==========================================================
             # SOUS-ONGLETS
             # ==========================================================
-            sous_tab1, sous_tab2, sous_tab3 = st.tabs([
-                "1. Tarification", "2. Hypothèses", "4. Bilan Financier"
+            sous_tab1, sous_tab2, sous_tab3, sous_tab4 = st.tabs([
+                "1. Tarification", 
+                "2. Hypothèses globales", 
+                "3. Bilan Financier", 
+                "4. Avec vs Sans Batterie"
             ])
-
             # ----------------------------------------------------------------
             # SOUS-ONGLET 1 : TARIFICATION
             # ----------------------------------------------------------------
@@ -1931,6 +1933,79 @@ if fichiers_conso and fichiers_prod:
                     f"{prix_ttc_moyen*100:.2f} c€/kWh")
                 st.download_button(label=" Télécharger le bilan financier en PNG", data=png_buffer,
                     file_name=f"bilan_financier_{capacite_etude:.0f}kWh.png", mime="image/png")
+            # ----------------------------------------------------------------
+            # SOUS-ONGLET 4 : COMPARATIF AVEC VS SANS BATTERIE
+            # ----------------------------------------------------------------
+            with sous_tab4:
+                st.markdown("### ⚖️ Valeur ajoutée du stockage")
+                st.write("Ce tableau compare les performances de votre mix énergétique avec et sans l'intégration de la batterie.")
+                
+                # 1. Simulation SANS batterie
+                df_sans_batt, dt_sans = simuler_systeme_avec_batterie(df, 0.0, 0.0, 0)
+                # Note: Assure-toi d'utiliser ta fonction calculer_kpi ou équivalente ici
+                # kpi_sans = calculer_kpi(df_sans_batt, dt_sans, prix_imp, prix_exp) 
+                
+                # Récupération des valeurs clés (à adapter selon le nom exact de tes colonnes/fonctions)
+                conso_totale = df["conso_kW"].sum() * dt_sans if "conso_kW" in df.columns else 1
+                
+                autoconso_kwh_sans = df_sans_batt["autoconso_directe_kW"].sum() * dt_sans
+                import_kwh_sans = df_sans_batt["import_kW"].sum() * dt_sans
+                export_kwh_sans = df_sans_batt["export_kW"].sum() * dt_sans
+                tap_sans = (autoconso_kwh_sans / conso_totale) * 100
+                
+                facture_sans = (import_kwh_sans * prix_ttc_moyen - export_kwh_sans * prix_vente_reseau)
+
+                # 2. Simulation AVEC batterie (déjà calculée dans le sous_tab3 via df_simu_etude)
+                autoconso_kwh_avec = df_simu_etude["autoconso_directe_kW"].sum() * dt_etude + df_simu_etude["batt_decharge_kW"].sum() * dt_etude
+                import_kwh_avec = df_simu_etude["import_kW"].sum() * dt_etude
+                export_kwh_avec = df_simu_etude["export_kW"].sum() * dt_etude
+                tap_avec = (autoconso_kwh_avec / conso_totale) * 100
+                
+                facture_avec = (import_kwh_avec * prix_ttc_moyen_decharge - export_kwh_avec * prix_vente_reseau)
+
+                # 3. Affichage des deltas
+                c1, c2, c3 = st.columns(3)
+                
+                with c1:
+                    st.metric(
+                        label="Taux d'Autoproduction (TAP)", 
+                        value=f"{tap_avec:.1f} %", 
+                        delta=f"{tap_avec - tap_sans:.1f} % (apport batterie)"
+                    )
+                    st.metric(
+                        label="Énergie autoconsommée", 
+                        value=f"{autoconso_kwh_avec:,.0f} kWh", 
+                        delta=f"{autoconso_kwh_avec - autoconso_kwh_sans:,.0f} kWh"
+                    )
+
+                with c2:
+                    st.metric(
+                        label="Soutirage Réseau (Import)", 
+                        value=f"{import_kwh_avec:,.0f} kWh", 
+                        delta=f"{import_kwh_avec - import_kwh_sans:,.0f} kWh",
+                        delta_color="inverse" # Inverse car on veut qu'une baisse (négatif) soit en vert
+                    )
+                    st.metric(
+                        label="Surplus injecté (Export)", 
+                        value=f"{export_kwh_avec:,.0f} kWh", 
+                        delta=f"{export_kwh_avec - export_kwh_sans:,.0f} kWh",
+                        delta_color="inverse" 
+                    )
+
+                with c3:
+                    st.metric(
+                        label="Facture nette annuelle", 
+                        value=f"{facture_avec:,.0f} €", 
+                        delta=f"{facture_avec - facture_sans:,.0f} €",
+                        delta_color="inverse"
+                    )
+                
+                st.markdown("---")
+                st.info(
+                    f"**Interprétation :** L'ajout de la batterie de **{capacite_etude:.0f} kWh** permet "
+                    f"d'économiser **{abs(facture_avec - facture_sans):,.0f} € supplémentaires par an** sur la facture, "
+                    f"par rapport à une installation de production pure sans stockage."
+                )
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")# -*- coding: utf-8 -*-
  
