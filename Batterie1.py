@@ -920,15 +920,6 @@ if fichiers_conso and fichiers_prod:
         st.info(f"Règle appliquée : puissance de l'onduleur fixée à {puissance_onduleur_ld:.1f} kW "
                 f"(moitié de la capacité de stockage).")
 
-        afficher_reseau_ld = st.checkbox(
-            "Afficher aussi les achats/injections réseau (cumul journalier, en kWh/j)",
-            value=False,
-            key="chk_reseau_ld",
-            help="Ajoute l'énergie totale achetée et injectée au réseau chaque jour (kWh cumulés "
-            "sur ~48 pas de 30 min). Attention : ce sont des valeurs d'énergie, à ne pas comparer "
-            "directement aux courbes de puissance (kW) affichées par défaut."
-        )
-
         affichage_soc_ld = st.radio(
             "Affichage de l'état de charge :",
             ["Pic quotidien", "Moyenne quotidienne"],
@@ -945,7 +936,7 @@ if fichiers_conso and fichiers_prod:
             df, capacite_batterie_ld, puissance_onduleur_ld, soc_initial_ld
         )
 
-        # --- Ré-échantillonnage : 1 point par jour (les 3 courbes de base) ---
+        # --- Ré-échantillonnage : 1 point par jour ---
         jours = df_simu_ld.index.date
         conso_pic_j = df_simu_ld.groupby(jours)["conso_kW"].max()
         prod_pic_j  = df_simu_ld.groupby(jours)["prod_kW"].max()
@@ -957,48 +948,73 @@ if fichiers_conso and fichiers_prod:
             soc_j = df_simu_ld.groupby(jours)["SoC_pourcent"].mean()
             soc_nom = "État de charge moyen (%)"
 
-        series_a_convertir = [conso_pic_j, prod_pic_j, soc_j]
+        st.subheader("Courbes à afficher")
+        col_ch1_ld, col_ch2_ld, col_ch3_ld, col_ch4_ld, col_ch5_ld = st.columns(5)
+        afficher_conso_pic = col_ch1_ld.checkbox("Pic consommation", value=True, key="aff_conso_pic_ld")
+        afficher_prod_pic = col_ch2_ld.checkbox("Pic production", value=True, key="aff_prod_pic_ld")
+        afficher_soc_pic = col_ch3_ld.checkbox("État de charge", value=True, key="aff_soc_pic_ld")
+        afficher_achat_ld = col_ch4_ld.checkbox("Achat Réseau", value=False, key="aff_achat_ld",
+            help="Énergie totale achetée au réseau chaque jour (kWh cumulés sur ~48 pas de 30 min) — "
+                 "une valeur d'énergie, à ne pas comparer directement aux courbes de puissance (kW).")
+        afficher_injection_ld = col_ch5_ld.checkbox("Injection Réseau", value=False, key="aff_injection_ld",
+            help="Énergie totale injectée au réseau chaque jour (kWh cumulés) — également une valeur "
+                 "d'énergie, pas de puissance.")
 
-        # --- Réseau : optionnel, cumul journalier en kWh ---
-        if afficher_reseau_ld:
+        series_a_convertir = []
+        if afficher_conso_pic:
+            series_a_convertir.append(conso_pic_j)
+        if afficher_prod_pic:
+            series_a_convertir.append(prod_pic_j)
+        if afficher_soc_pic:
+            series_a_convertir.append(soc_j)
+        if afficher_achat_ld or afficher_injection_ld:
             import_j = df_simu_ld.groupby(jours)["Import_Reseau_kW"].sum() * dt_ld
             export_j = df_simu_ld.groupby(jours)["Export_Reseau_kW"].sum() * dt_ld
-            series_a_convertir += [import_j, export_j]
+            if afficher_achat_ld:
+                series_a_convertir.append(import_j)
+            if afficher_injection_ld:
+                series_a_convertir.append(export_j)
 
         for serie in series_a_convertir:
             serie.index = pd.to_datetime(serie.index)
 
-        # --- Graphique ---
-        fig_ld = make_subplots(specs=[[{"secondary_y": True}]])
+        if not (afficher_conso_pic or afficher_prod_pic or afficher_soc_pic or afficher_achat_ld or afficher_injection_ld):
+            st.info("Cochez au moins une courbe ci-dessus pour l'afficher.")
+        else:
+            fig_ld = make_subplots(specs=[[{"secondary_y": True}]])
 
-        if afficher_reseau_ld:
-            fig_ld.add_trace(go.Bar(x=import_j.index, y=import_j.values,
-                name="Achat Réseau (kWh/j)", marker_color="rgba(255, 0, 0, 0.3)"), secondary_y=False)
-            fig_ld.add_trace(go.Bar(x=export_j.index, y=export_j.values,
-                name="Injection Réseau (kWh/j)", marker_color="rgba(0, 255, 0, 0.3)"), secondary_y=False)
+            if afficher_achat_ld:
+                fig_ld.add_trace(go.Bar(x=import_j.index, y=import_j.values,
+                    name="Achat Réseau (kWh/j)", marker_color="rgba(255, 0, 0, 0.7)"), secondary_y=False)
+            if afficher_injection_ld:
+                fig_ld.add_trace(go.Bar(x=export_j.index, y=export_j.values,
+                    name="Injection Réseau (kWh/j)", marker_color="rgba(0, 180, 0, 0.7)"), secondary_y=False)
 
-        fig_ld.add_trace(go.Scatter(x=conso_pic_j.index, y=conso_pic_j.values, mode="lines",
-            name="Pic de consommation (kW/j)", line=dict(color="royalblue", width=2)), secondary_y=False)
+            if afficher_conso_pic:
+                fig_ld.add_trace(go.Scatter(x=conso_pic_j.index, y=conso_pic_j.values, mode="lines",
+                    name="Pic de consommation (kW/j)", line=dict(color="royalblue", width=2)), secondary_y=False)
 
-        fig_ld.add_trace(go.Scatter(x=prod_pic_j.index, y=prod_pic_j.values, mode="lines",
-            name="Pic de production (kW/j)", line=dict(color="#FF8C00", width=2)), secondary_y=False)
+            if afficher_prod_pic:
+                fig_ld.add_trace(go.Scatter(x=prod_pic_j.index, y=prod_pic_j.values, mode="lines",
+                    name="Pic de production (kW/j)", line=dict(color="#FF8C00", width=2)), secondary_y=False)
 
-        fig_ld.add_trace(go.Scatter(x=soc_j.index, y=soc_j.values, mode="lines",
-            name=soc_nom, line=dict(color="purple", width=2),
-            fill="tozeroy", fillcolor="rgba(128, 0, 128, 0.1)"), secondary_y=True)
+            if afficher_soc_pic:
+                fig_ld.add_trace(go.Scatter(x=soc_j.index, y=soc_j.values, mode="lines",
+                    name=soc_nom, line=dict(color="purple", width=2),
+                    fill="tozeroy", fillcolor="rgba(128, 0, 128, 0.1)"), secondary_y=True)
 
-        fig_ld.update_layout(
-            title=dict(text="Simulation longue durée — 1 point par jour", font=dict(size=18)),
-            hovermode="x unified", barmode="overlay",
-            legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
-            margin=dict(t=60, b=100, l=40, r=40)
-        )
-        axe_titre = "Puissance (kW)" + (" / Énergie cumulée (kWh/j)" if afficher_reseau_ld else "")
-        fig_ld.update_yaxes(title_text=axe_titre, secondary_y=False)
-        fig_ld.update_yaxes(title_text=soc_nom, range=[0, 105], secondary_y=True)
-        fig_ld.update_xaxes(type="date", title_text="Jour", gridcolor="rgba(200, 200, 200, 0.2)")
+            fig_ld.update_layout(
+                title=dict(text="Simulation longue durée — 1 point par jour", font=dict(size=18)),
+                hovermode="x unified", barmode="overlay",
+                legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
+                margin=dict(t=60, b=100, l=40, r=40)
+            )
+            axe_titre = "Puissance (kW)" + (" / Énergie cumulée (kWh/j)" if (afficher_achat_ld or afficher_injection_ld) else "")
+            fig_ld.update_yaxes(title_text=axe_titre, secondary_y=False)
+            fig_ld.update_yaxes(title_text=soc_nom if afficher_soc_pic else "", range=[0, 105], secondary_y=True)
+            fig_ld.update_xaxes(type="date", title_text="Jour", gridcolor="rgba(200, 200, 200, 0.2)")
 
-        st.plotly_chart(fig_ld, use_container_width=True)
+            st.plotly_chart(fig_ld, use_container_width=True)
 
         # --- KPIs sur la période complète (calculés à pleine résolution) ---
         st.subheader("Performances du système sur la période")
@@ -1078,7 +1094,7 @@ if fichiers_conso and fichiers_prod:
             fig_comp_ld.update_xaxes(type="date")
             st.plotly_chart(fig_comp_ld, use_container_width=True)
 
-            st.markdown("---")
+        st.markdown("---")
         st.subheader("État de charge à une heure fixe, jour par jour sur l'année")
 
         heure_selectionnee = st.time_input(
@@ -1090,19 +1106,7 @@ if fichiers_conso and fichiers_prod:
                  "30 min des données, l'horodatage le plus proche est utilisé automatiquement."
         )
 
-        minutes_cible = heure_selectionnee.hour * 60 + heure_selectionnee.minute
-        minutes_donnees = df_simu_ld.index.hour * 60 + df_simu_ld.index.minute
-        ecart_brut = np.abs(minutes_donnees - minutes_cible)
-        ecart_minutes = np.minimum(ecart_brut, 1440 - ecart_brut)  # gère le passage minuit
-
-        df_temp_heure = pd.DataFrame({
-            "date": df_simu_ld.index,
-            "jour": df_simu_ld.index.date,
-            "SoC_pourcent": df_simu_ld["SoC_pourcent"].values,
-            "ecart_minutes": ecart_minutes,
-        })
-        idx_plus_proche = df_temp_heure.groupby("jour")["ecart_minutes"].idxmin()
-        soc_heure_fixe = df_temp_heure.loc[idx_plus_proche].set_index("date")["SoC_pourcent"].sort_index()
+        soc_heure_fixe = extraire_soc_a_heure(df_simu_ld, heure_selectionnee)
 
         fig_soc_heure = go.Figure()
         fig_soc_heure.add_trace(go.Scatter(
@@ -1119,7 +1123,7 @@ if fichiers_conso and fichiers_prod:
         fig_soc_heure.update_yaxes(range=[0, 105])
         fig_soc_heure.update_xaxes(type="date")
         st.plotly_chart(fig_soc_heure, use_container_width=True)
-        
+
         st.markdown("---")
         st.subheader("État de charge à plusieurs heures fixes, superposées")
 
