@@ -1820,33 +1820,38 @@ if fichiers_conso and fichiers_prod:
                     st.markdown(carte_indicateur("OPEX année 1", f"{opex_an1_v2:,.0f} €",
                         "#E0F7FA", "#006064"), unsafe_allow_html=True)
 
-   
+
 
                 ligne_capacite = df_res_t4.iloc[
-                (df_res_t4["Capacité (kWh)"] - capacite_etude)
-                .abs()
-                .argsort()[:1]
+                    (df_res_t4["Capacité (kWh)"] - capacite_etude)
+                    .abs()
+                    .argsort()[:1]
                 ].iloc[0]
 
-                gain_global_kwh_reel = ligne_capacite[
-        "Autoconso Totale (kWh)"
-                ]
-
-                puissance_onduleur_etude = capacite_etude / 2.0
-
+                autoconso_totale_kwh_reel = ligne_capacite["Autoconso Totale (kWh)"]
+                gain_net_kwh_reel = ligne_capacite["Gain Énergétique (kWh)"]
 
                 puissance_onduleur_etude = capacite_etude / 2.0
                 df_simu_etude, dt_etude = simuler_systeme_avec_batterie(df, capacite_etude, puissance_onduleur_etude, 0)
 
-                prix_ttc_moyen_decharge = prix_moyen_pondere_decharge_ttc(
-                    df_simu_etude, dt_etude, segment_siege, cadran_siege, segment_bornes, cadran_bornes,
-                    volume_siege, volume_bornes, accise_eur_mwh, taux_tva, turpe_dict,
+                prix_ttc_moyen_total = prix_moyen_pondere_flux_ttc(
+                    df_simu_etude["Autoconso_Totale_kW"], dt_etude, segment_siege, cadran_siege, segment_bornes, cadran_bornes,
+                    volume_siege, volume_bornes, accise_eur_mwh_siege, accise_eur_mwh_bornes, taux_tva,
+                    turpe_dict_siege, turpe_dict_bornes,
                     mois_saison_haute_num, heure_debut_hc_haute, heure_fin_hc_haute,
                     heure_debut_hc_basse, heure_fin_hc_basse
                 )
-                st.caption(f"Prix évité pondéré par le moment réel de décharge de la batterie : "
-                           f"{prix_ttc_moyen_decharge:.4f} €/kWh (contre {prix_ttc_moyen:.4f} €/kWh "
+                st.caption(f"Prix évité pondéré par l'autoconsommation totale (avec batterie) : "
+                           f"{prix_ttc_moyen_total:.4f} €/kWh (contre {prix_ttc_moyen:.4f} €/kWh "
                            f"si pondéré par la conso totale du site).")
+
+                df_enolab = calculer_tableau_enolab(
+                    capex=capex_v2, opex_an1=opex_an1_v2, taux_inflation_opex=taux_inflation_opex,
+                    energie_kwh_an1=autoconso_totale_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen_total,
+                    taux_inflation_energie=taux_inflation_energie, duree_vie_ans=duree_etude_v2,
+                    degradation_pct_an=degradation_pct, prix_vente_reseau=prix_vente_reseau,
+                    gain_net_kwh_an1=gain_net_kwh_reel
+                )
 
                 df_enolab = calculer_tableau_enolab(
                 capex=capex_v2, opex_an1=opex_an1_v2, taux_inflation_opex=taux_inflation_opex,
