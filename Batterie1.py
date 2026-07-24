@@ -1789,7 +1789,7 @@ if fichiers_conso and fichiers_prod:
 
                 indic_sans = calculer_flux_et_indicateurs(
                     energie_sans_kwh, capex_sans_t3, opex_sans_t3, prix_sans, prix_vente_reseau,
-                    taux_actualisation, duree_vie_ans, 0.0, taux_inflation_energie, taux_inflation_opex
+                    taux_actualisation, DUREE_VIE_MAX_ANS, 0.0, taux_inflation_energie, taux_inflation_opex
                 )
 
                 st.markdown(carte_indicateur("VAN de référence (sans batterie)", f"{indic_sans['van']:,.0f} €",
@@ -1805,7 +1805,7 @@ if fichiers_conso and fichiers_prod:
                                                           if cycles_par_an > 0 else DUREE_VIE_MAX_ANS))
                         capex_batterie = capex_unitaire * cap + capex_fixe
                     else:
-                        duree_vie_capacite = duree_vie_ans
+                        duree_vie_capacite = DUREE_VIE_MAX_ANS
                         capex_batterie = 0.0
                     capex_avec = capex_sans_t3 + capex_batterie
                     opex_annuel_avec = opex_sans_t3 + capex_batterie * opex_pct
