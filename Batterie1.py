@@ -1775,11 +1775,14 @@ if fichiers_conso and fichiers_prod:
             # ----------------------------------------------------------------
             # SOUS-ONGLET 3 : DÉTAIL (FORMAT ENOLAB)
             # ----------------------------------------------------------------
-            with sous_tab4:
+            with sous_tab3:
+                
+                
                 capacite_etude = st.number_input("Capacité de la batterie étudiée (kWh)",
                     min_value=0.0, max_value=500.0, value=250.0, step=5.0, key="capacite_etude_input")
                 ligne_capacite = df_res_t4.iloc[(df_res_t4["Capacité (kWh)"] - capacite_etude).abs().argsort()[:1]].iloc[0]
                 gain_net_kwh_reel = ligne_capacite["Gain Énergétique (kWh)"]
+                gain_global_kwh_reel = ligne_capacite["Autoconso Totale (kWh)"]
 
                 duree_etude_v2 = st.number_input("Durée d'étude du bilan financier (années)",
                     min_value=1, max_value=30, value=20, step=1, key="duree_etude_v2_input",
@@ -1814,11 +1817,11 @@ if fichiers_conso and fichiers_prod:
                            f"si pondéré par la conso totale du site).")
 
                 df_enolab = calculer_tableau_enolab(
-                    capex=capex_v2, opex_an1=opex_an1_v2, taux_inflation_opex=taux_inflation_opex,
-                    energie_kwh_an1=gain_net_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen_decharge,
-                    taux_inflation_energie=taux_inflation_energie, duree_vie_ans=duree_etude_v2,
-                    degradation_pct_an=degradation_pct, prix_vente_reseau=prix_vente_reseau,
-                    gain_net_kwh_an1=gain_net_kwh_reel
+                capex=capex_v2, opex_an1=opex_an1_v2, taux_inflation_opex=taux_inflation_opex,
+                energie_kwh_an1=gain_global_kwh_reel, prix_moyen_ttc_an1=prix_ttc_moyen_decharge,
+                taux_inflation_energie=taux_inflation_energie, duree_vie_ans=duree_etude_v2,
+                degradation_pct_an=degradation_pct, prix_vente_reseau=prix_vente_reseau,
+                gain_net_kwh_an1=gain_global_kwh_reel
                 )
 
                 def fmt_eur(x):
