@@ -462,9 +462,17 @@ def calculer_flux_et_indicateurs(gain_net_kwh_an1, capex, opex_annuel_an1, prix_
     return {"van": van, "tri": tri * 100 if tri is not None else None, "lcos": lcos,
             "payback": payback, "ratio_bc": ratio_bc}
 
-def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_an1, prix_moyen_ttc_an1,
-                              taux_inflation_energie, revenu_producteur_an1, taux_inflation_revenu_producteur,
-                              duree_vie_ans, degradation_pct_an=0.0, prix_vente_reseau=0.0):
+def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, energie_kwh_an1, prix_moyen_ttc_an1,
+                              taux_inflation_energie, duree_vie_ans, degradation_pct_an=0.0,
+                              prix_vente_reseau=0.0, gain_net_kwh_an1=None):
+    """
+    energie_kwh_an1 : énergie valorisée dans "Economie ACI" pour CE scénario (autoconso directe pour
+                       « sans batterie », autoconso totale pour « avec batterie »).
+    gain_net_kwh_an1 : part de cette énergie attribuable à la batterie (utilisée uniquement pour
+                        « Revenu producteur »). None -> 0 (pas de batterie, pas de perte de recette).
+    """
+    if gain_net_kwh_an1 is None:
+        gain_net_kwh_an1 = 0.0
     lignes = [{
         "Année": "A0", "CAPEX (€ HT)": -capex, "OPEX (€ HT)": np.nan,
         "Énergie autoconsommée (kWh)": np.nan,
@@ -475,16 +483,17 @@ def calculer_tableau_enolab(capex, opex_an1, taux_inflation_opex, gain_net_kwh_a
     for annee in range(1, duree_vie_ans + 1):
         facteur_degradation = (1 - degradation_pct_an) ** (annee - 1)
         opex = -opex_an1 * (1 + taux_inflation_opex) ** (annee - 1)
-        gain_kwh = gain_net_kwh_an1 * facteur_degradation
+        energie_kwh = energie_kwh_an1 * facteur_degradation
+        gain_net_kwh = gain_net_kwh_an1 * facteur_degradation
         prix_ttc = prix_moyen_ttc_an1 * (1 + taux_inflation_energie) ** (annee - 1)
-        marge = prix_ttc - prix_vente_reseau
-        economie_aci = gain_kwh * marge
-        revenu_producteur = -revenu_producteur_an1 * (1 + taux_inflation_revenu_producteur) ** (annee - 1)
+        economie_aci = energie_kwh * prix_ttc
+        prix_vente_actuel = prix_vente_reseau * (1 + taux_inflation_energie) ** (annee - 1)
+        revenu_producteur = -gain_net_kwh * prix_vente_actuel
         economie_nette = economie_aci + revenu_producteur + opex
         flux_cumule += economie_nette
         lignes.append({
             "Année": f"A{annee}", "CAPEX (€ HT)": np.nan, "OPEX (€ HT)": opex,
-            "Énergie autoconsommée (kWh)": gain_kwh,
+            "Énergie autoconsommée (kWh)": energie_kwh,
             "Economie ACI (€ TTC)": economie_aci, "Revenu producteur (€)": revenu_producteur,
             "Economie nette (€)": economie_nette, "Flux cumulés (€)": flux_cumule,
         })
