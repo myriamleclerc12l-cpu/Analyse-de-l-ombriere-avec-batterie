@@ -167,13 +167,18 @@ def charger_donnees_reelles(files_conso, files_prod, file_bornes):
         st.error(f"Erreur lors de la lecture du fichier Enedis des bornes : {e}")
     return df, noms_courbes_conso, noms_courbes_prod
 
-def simuler_systeme_avec_batterie(df, capacite_kwh, p_max_kw=3.0, soc_initial_pct=0.0):
+def simuler_systeme_avec_batterie(df, capacite_kwh, p_max_kw=3.0, soc_initial_pct=0.0,
+                                    soc_min_pct=0.0, soc_max_pct=100.0):
     if len(df) > 1:
         dt = (df.index[1] - df.index[0]).total_seconds() / 3600.0
     else:
         dt = 1.0
 
-    soc_kwh = capacite_kwh * (soc_initial_pct / 100.0)
+    soc_min_kwh = capacite_kwh * (soc_min_pct / 100.0)
+    soc_max_kwh = capacite_kwh * (soc_max_pct / 100.0)
+    soc_initial_pct_clip = min(max(soc_initial_pct, soc_min_pct), soc_max_pct)
+    soc_kwh = capacite_kwh * (soc_initial_pct_clip / 100.0)
+
     soc_history, autoconso_directe, autoconso_batterie, import_reseau, export_reseau = [], [], [], [], []
 
     for row in df.itertuples():
@@ -188,14 +193,14 @@ def simuler_systeme_avec_batterie(df, capacite_kwh, p_max_kw=3.0, soc_initial_pc
         decharge_bat = 0.0
 
         if surplus > 0 and capacite_kwh > 0:
-            max_power_to_fill = (capacite_kwh - soc_kwh) / dt
-            charge_bat = min(surplus, p_max_kw, max_power_to_fill)
+            max_power_to_fill = (soc_max_kwh - soc_kwh) / dt
+            charge_bat = min(surplus, p_max_kw, max(0.0, max_power_to_fill))
             soc_kwh += charge_bat * dt
             surplus -= charge_bat
 
         elif deficit > 0 and capacite_kwh > 0:
-            max_power_to_empty = soc_kwh / dt
-            decharge_bat = min(deficit, p_max_kw, max_power_to_empty)
+            max_power_to_empty = (soc_kwh - soc_min_kwh) / dt
+            decharge_bat = min(deficit, p_max_kw, max(0.0, max_power_to_empty))
             soc_kwh -= decharge_bat * dt
             deficit -= decharge_bat
 
@@ -211,7 +216,6 @@ def simuler_systeme_avec_batterie(df, capacite_kwh, p_max_kw=3.0, soc_initial_pc
     df_res["Autoconso_Totale_kW"] = np.array(autoconso_directe) + np.array(autoconso_batterie)
     df_res["Import_Reseau_kW"] = import_reseau
     df_res["Export_Reseau_kW"] = export_reseau
-
 
     return df_res, dt
 
@@ -754,7 +758,7 @@ if fichiers_conso and fichiers_prod:
     with tab1:
 
         st.markdown("---")
-        st.header("Simulation temporelle courte durée (< 1 mois) ")
+        st.header("Simulation temporelle courte durée (< 2 semaines) ")
         st.markdown("""
    Cet onglet est adapté à l'analyse des courbes de charges, de production et de la capacité utilisé de la batterie sur 
    périodes courtes (D'une journée à quelques semaines) avec un pas de temps de 30 min. 
@@ -777,8 +781,19 @@ if fichiers_conso and fichiers_prod:
         st.info(f"Règle appliquée : La puissance de l'onduleur est fixée à {puissance_onduleur:.1f} kW (moitié de la capacité de stockage).")
 
         unite_batterie = st.radio("Affichage de la batterie :", ["Pourcentage (%)", "Énergie (kWh)"], horizontal=True)
+        
+        mode_econome_t1 = st.checkbox(" Mode économe (préserve la batterie, limite 20%-80%)",
+            value=False, key="mode_econome_t1",
+            help="Limite la charge et la décharge de la batterie entre 20 % et 80 % de sa capacité, "
+                 "pour réduire l'usure liée aux cycles complets (0-100 %). Réduit légèrement le gain "
+                 "énergétique exploitable, mais peut prolonger la durée de vie réelle au-delà de ce que "
+                 "prévoit le calcul par cycles équivalents (qui suppose une usure uniforme, indépendante "
+                 "de la profondeur de décharge).")
+        soc_min_t1 = 20.0 if mode_econome_t1 else 0.0
+        soc_max_t1 = 80.0 if mode_econome_t1 else 100.0
 
-        df_simu, dt = simuler_systeme_avec_batterie(df, capacite_batterie, puissance_onduleur, soc_initial)
+        df_simu, dt = simuler_systeme_avec_batterie(df, capacite_batterie, puissance_onduleur, soc_initial,
+            soc_min_pct=soc_min_t1, soc_max_pct=soc_max_t1)
 
         fig_bat = make_subplots(specs=[[{"secondary_y": True}]])
         fig_bat.add_trace(go.Scatter(x=df.index, y=df_simu["conso_kW"], mode="lines", name="Consommation", line=dict(color="blue", width=2)), secondary_y=False)
@@ -879,7 +894,7 @@ if fichiers_conso and fichiers_prod:
      # ----------------------------------------------------
 
     with tab2:
-        st.header("Simulation Longue Durée (> 1 mois)")
+        st.header("Simulation Longue Durée (> 2 semaines)")
         st.markdown("""
         Cet onglet est adapté à l'analyse de périodes longues (plusieurs semaines à plusieurs mois), 
         pour lesquelles le graphique détaillé de l'onglet **« Simulation Temporelle »** devient illisible 
@@ -930,10 +945,17 @@ if fichiers_conso and fichiers_prod:
             "représentatif du taux d'utilisation réel, mais n'atteint jamais 100 % même les jours où "
             "la batterie s'est pleinement chargée."
         )
+        
+        mode_econome_t2 = st.checkbox(" Mode économe (préserve la batterie, limite 20%-80%)",
+            value=False, key="mode_econome_t2",
+            help="Voir onglet 1 pour le détail.")
+        soc_min_t2 = 20.0 if mode_econome_t2 else 0.0
+        soc_max_t2 = 80.0 if mode_econome_t2 else 100.0
 
         # --- Simulation à pleine résolution (nécessaire pour un bilan énergétique correct) ---
         df_simu_ld, dt_ld = simuler_systeme_avec_batterie(
-            df, capacite_batterie_ld, puissance_onduleur_ld, soc_initial_ld
+            df, capacite_batterie_ld, puissance_onduleur_ld, soc_initial_ld,
+            soc_min_pct=soc_min_t2, soc_max_pct=soc_max_t2
         )
 
         # --- Ré-échantillonnage : 1 point par jour ---
@@ -1190,6 +1212,9 @@ if fichiers_conso and fichiers_prod:
         soc_init_test = st.number_input("Charge initiale au départ (%) :", value=0, min_value=0, max_value=100, key="num_soc_t2", help="Niveau de charge de la batterie au début de la période sélectionnée.")
 
         st.info("Règle appliquée : Pour chaque capacité testée, la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh).")
+        
+        mode_econome_t3 = st.checkbox(" Mode économe (préserve la batterie, limite 20%-80%)",
+                value=False, key="mode_econome_t3", help="Voir onglet 1 pour le détail.")
 
         if st.button("Lancer l'analyse de sensibilité", key="btn_run_t2"):
             with st.spinner('Calcul en cours...'):
@@ -1198,10 +1223,15 @@ if fichiers_conso and fichiers_prod:
 
                 resultats = []
                 capacites_testees = np.arange(0, max_cap_test + 5, 5)
+                
 
-                for cap in capacites_testees:
+                for cap in capacites_testees: 
                     p_ond = cap / 2.0
-                    df_res, dt_local = simuler_systeme_avec_batterie(df, cap, p_max_kw=p_ond, soc_initial_pct=soc_init_test)
+                    soc_min_t3 = 20.0 if mode_econome_t3 else 0.0
+                    soc_max_t3 = 80.0 if mode_econome_t3 else 100.0
+                    df_res, dt_local = simuler_systeme_avec_batterie(df, cap, p_max_kw=p_ond,
+                        soc_initial_pct=soc_init_test, soc_min_pct=soc_min_t3, soc_max_pct=soc_max_t3)
+                  
 
                     conso_tot = df_res["conso_kW"].sum() * dt_local
                     autoconso_tot = df_res["Autoconso_Totale_kW"].sum() * dt_local
@@ -1270,6 +1300,9 @@ if fichiers_conso and fichiers_prod:
             soc_initial_janvier_t4 = 0
 
             st.info("Règle appliquée : Pour chaque capacité testée, la puissance de l'onduleur (kW) sera automatiquement égale à la moitié de la capacité (kWh).")
+            
+            mode_econome_t4 = st.checkbox(" Mode économe (préserve la batterie, limite 20%-80%)",
+                    value=False, key="mode_econome_t4", help="Voir onglet 1 pour le détail.")
 
             if st.button("Lancer l'analyse annuelle", key="btn_run_t4"):
                 with st.spinner("Calcul en cours..."):
@@ -1282,7 +1315,11 @@ if fichiers_conso and fichiers_prod:
 
                     for cap in capacites_testees_t4:
                         p_ond = cap / 2.0
-                        df_res_t4, dt_t4 = simuler_systeme_avec_batterie(df_annee, cap, p_max_kw=p_ond, soc_initial_pct=soc_initial_janvier_t4)
+                        soc_min_t4 = 20.0 if mode_econome_t4 else 0.0
+                        soc_max_t4 = 80.0 if mode_econome_t4 else 100.0
+                        df_res_t4, dt_t4 = simuler_systeme_avec_batterie(df_annee, cap, p_max_kw=p_ond,
+                            soc_initial_pct=soc_initial_janvier_t4, soc_min_pct=soc_min_t4, soc_max_pct=soc_max_t4)
+                       
 
                         conso_tot_t4 = df_res_t4["conso_kW"].sum() * dt_t4
                         prod_tot_t4 = df_res_t4["prod_kW"].sum() * dt_t4
