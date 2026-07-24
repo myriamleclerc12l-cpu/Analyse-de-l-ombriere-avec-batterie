@@ -1936,79 +1936,117 @@ if fichiers_conso and fichiers_prod:
             # ----------------------------------------------------------------
             # SOUS-ONGLET 4 : COMPARATIF AVEC VS SANS BATTERIE
             # ----------------------------------------------------------------
+            # ----------------------------------------------------------------
+            # SOUS-ONGLET 4 : COMPARATIF AVEC VS SANS BATTERIE
+            # ----------------------------------------------------------------
             with sous_tab4:
-                st.markdown("### ⚖️ Valeur ajoutée du stockage")
-                st.write("Ce tableau compare les performances de votre mix énergétique avec et sans l'intégration de la batterie.")
+                st.markdown("### ⚖️ Comparaison des Bilans Financiers")
+                st.write("Cet onglet génère les deux plans de trésorerie complets pour comparer la rentabilité globale de l'investissement.")
+
+                # --- 1. Paramétrage SANS Batterie ---
+                st.markdown("##### Hypothèses SANS batterie")
+                # On déduit un CAPEX/OPEX "sans batterie" logique par défaut (CAPEX Total - coût estimé de la batterie)
+                capex_batt_estime = capacite_etude * capex_unitaire
+                capex_sans_defaut = max(0.0, capex_v2 - capex_batt_estime)
+                opex_sans_defaut = max(0.0, opex_an1_v2 - (capex_batt_estime * opex_pct))
                 
-                # 1. Simulation SANS batterie
+                col_c_sans1, col_c_sans2 = st.columns(2)
+                capex_sans = col_c_sans1.number_input("CAPEX du système SANS batterie (€ HT)", min_value=0.0, value=float(capex_sans_defaut), step=1000.0, key="capex_sans")
+                opex_sans = col_c_sans2.number_input("OPEX année 1 SANS batterie (€ HT)", min_value=0.0, value=float(opex_sans_defaut), step=100.0, key="opex_sans")
+
+                # Simulation SANS batterie
                 df_sans_batt, dt_sans = simuler_systeme_avec_batterie(df, 0.0, 0.0, 0)
-                # Note: Assure-toi d'utiliser ta fonction calculer_kpi ou équivalente ici
-                # kpi_sans = calculer_kpi(df_sans_batt, dt_sans, prix_imp, prix_exp) 
-                
-                # Récupération des valeurs clés (à adapter selon le nom exact de tes colonnes/fonctions)
-                # On sécurise la consommation en kWh
-                conso_totale = df["conso_kW"].sum() * dt_sans if "conso_kW" in df.columns else 1
-                
-                # 1. Calculs SANS batterie (avec les bons noms de colonnes de ta fonction)
                 autoconso_kwh_sans = df_sans_batt["Autoconso_Totale_kW"].sum() * dt_sans
-                import_kwh_sans = df_sans_batt["Import_Reseau_kW"].sum() * dt_sans
-                export_kwh_sans = df_sans_batt["Export_Reseau_kW"].sum() * dt_sans
-                tap_sans = (autoconso_kwh_sans / conso_totale) * 100 if conso_totale > 0 else 0
                 
-                facture_sans = (import_kwh_sans * prix_ttc_moyen - export_kwh_sans * prix_vente_reseau)
-
-                # 2. Calculs AVEC batterie
-                autoconso_kwh_avec = df_simu_etude["Autoconso_Totale_kW"].sum() * dt_etude
-                import_kwh_avec = df_simu_etude["Import_Reseau_kW"].sum() * dt_etude
-                export_kwh_avec = df_simu_etude["Export_Reseau_kW"].sum() * dt_etude
-                tap_avec = (autoconso_kwh_avec / conso_totale) * 100 if conso_totale > 0 else 0
-                
-                facture_avec = (import_kwh_avec * prix_ttc_moyen_decharge - export_kwh_avec * prix_vente_reseau)
-                
-
-                # 3. Affichage des deltas
-                c1, c2, c3 = st.columns(3)
-                
-                with c1:
-                    st.metric(
-                        label="Taux d'Autoproduction (TAP)", 
-                        value=f"{tap_avec:.1f} %", 
-                        delta=f"{tap_avec - tap_sans:.1f} % (apport batterie)"
-                    )
-                    st.metric(
-                        label="Énergie autoconsommée", 
-                        value=f"{autoconso_kwh_avec:,.0f} kWh", 
-                        delta=f"{autoconso_kwh_avec - autoconso_kwh_sans:,.0f} kWh"
-                    )
-
-                with c2:
-                    st.metric(
-                        label="Soutirage Réseau (Import)", 
-                        value=f"{import_kwh_avec:,.0f} kWh", 
-                        delta=f"{import_kwh_avec - import_kwh_sans:,.0f} kWh",
-                        delta_color="inverse" # Inverse car on veut qu'une baisse (négatif) soit en vert
-                    )
-                    st.metric(
-                        label="Surplus injecté (Export)", 
-                        value=f"{export_kwh_avec:,.0f} kWh", 
-                        delta=f"{export_kwh_avec - export_kwh_sans:,.0f} kWh",
-                        delta_color="inverse" 
-                    )
-
-                with c3:
-                    st.metric(
-                        label="Facture nette annuelle", 
-                        value=f"{facture_avec:,.0f} €", 
-                        delta=f"{facture_avec - facture_sans:,.0f} €",
-                        delta_color="inverse"
-                    )
-                
-                st.markdown("---")
-                st.info(
-                    f"**Interprétation :** L'ajout de la batterie de **{capacite_etude:.0f} kWh** permet "
-                    f"d'économiser **{abs(facture_avec - facture_sans):,.0f} € supplémentaires par an** sur la facture, "
-                    f"par rapport à une installation de production pure sans stockage."
+                df_enolab_sans = calculer_tableau_enolab(
+                    capex=capex_sans, opex_an1=opex_sans, taux_inflation_opex=taux_inflation_opex,
+                    energie_kwh_an1=autoconso_kwh_sans, prix_moyen_ttc_an1=prix_ttc_moyen,
+                    taux_inflation_energie=taux_inflation_energie, duree_vie_ans=duree_etude_v2,
+                    degradation_pct_an=degradation_pct, prix_vente_reseau=prix_vente_reseau,
+                    gain_net_kwh_an1=0.0  # Pas de batterie = pas de revenu producteur "perdu" à cause du stockage
                 )
+
+                # df_enolab (AVEC batterie) est déjà calculé dans sous_tab3
+                df_enolab_avec = df_enolab
+
+                # --- 2. Affichage des Tableaux ---
+                st.markdown("#### 1. Plan de trésorerie SANS batterie")
+                st.dataframe(df_enolab_sans.style.format({
+                    "CAPEX (€ HT)": fmt_eur, "OPEX (€ HT)": fmt_eur,
+                    "Énergie autoconsommée (kWh)": fmt_eur,
+                    "Economie ACI (€ TTC)": fmt_eur, "Revenu producteur (€)": fmt_eur,
+                    "Economie nette (€)": fmt_eur, "Flux cumulés (€)": fmt_eur,
+                }).map(couleur_flux, subset=["Flux cumulés (€)"]), use_container_width=True)
+
+                st.markdown("#### 2. Plan de trésorerie AVEC batterie")
+                st.dataframe(df_enolab_avec.style.format({
+                    "CAPEX (€ HT)": fmt_eur, "OPEX (€ HT)": fmt_eur,
+                    "Énergie autoconsommée (kWh)": fmt_eur,
+                    "Economie ACI (€ TTC)": fmt_eur, "Revenu producteur (€)": fmt_eur,
+                    "Economie nette (€)": fmt_eur, "Flux cumulés (€)": fmt_eur,
+                }).map(couleur_flux, subset=["Flux cumulés (€)"]), use_container_width=True)
+
+                # --- 3. Calcul des Indicateurs SANS batterie ---
+                flux_annuels_sans = df_enolab_sans["Economie nette (€)"].values.astype(float)
+                cumul_sans = df_enolab_sans["Flux cumulés (€)"].values.astype(float)
+                annees_sans = np.arange(0, len(flux_annuels_sans))
+
+                def van_pour_taux_sans(r): return np.sum(flux_annuels_sans / (1 + r) ** annees_sans)
+
+                tri_sans = None
+                if van_pour_taux_sans(-0.99) > 0 and van_pour_taux_sans(10.0) < 0:
+                    lo, hi = -0.99, 10.0
+                    for _ in range(200):
+                        mid = (lo + hi) / 2
+                        if van_pour_taux_sans(mid) > 0: lo = mid
+                        else: hi = mid
+                    tri_sans = (lo + hi) / 2
+
+                opex_sans_arr = -df_enolab_sans["OPEX (€ HT)"].fillna(0).values.astype(float)
+                energie_sans_arr = df_enolab_sans["Énergie autoconsommée (kWh)"].fillna(0).values.astype(float)
+                couts_actualises_sans = capex_sans + float(np.sum(opex_sans_arr[1:] * facteurs_v2[1:]))
+                energie_actualisee_sans = float(np.sum(energie_sans_arr[1:] * facteurs_v2[1:]))
+                lcos_sans = couts_actualises_sans / energie_actualisee_sans if energie_actualisee_sans > 0 else float("nan")
+
+                payback_sans = None
+                idx_positif_sans = np.where(cumul_sans >= 0)[0]
+                if len(idx_positif_sans) > 0 and idx_positif_sans[0] > 0:
+                    i = idx_positif_sans[0]
+                    payback_sans = float((i - 1) + (-cumul_sans[i - 1] / flux_annuels_sans[i])) if flux_annuels_sans[i] != 0 else float(i)
+
+                # --- 4. Comparaison des 4 Indicateurs Clés ---
+                st.markdown("#### 3. Comparaison des Indicateurs de Synthèse")
+                
+                str_tri_sans = f"{tri_sans*100:.1f} %" if tri_sans is not None else "N/A"
+                str_tri_avec = f"{tri_v2*100:.1f} %" if tri_v2 is not None else "N/A"
+                
+                str_lcos_sans = f"{lcos_sans*100:.2f} c€/kWh" if not np.isnan(lcos_sans) else "N/A"
+                str_lcos_avec = f"{lcos_v2*100:.2f} c€/kWh" if not np.isnan(lcos_v2) else "N/A"
+                
+                str_trb_sans = f"{payback_sans:.1f} ans" if payback_sans is not None else "N/A"
+                str_trb_avec = f"{payback_v2:.1f} ans" if payback_v2 is not None else "N/A"
+                
+                str_val_sans = f"{prix_ttc_moyen*100:.2f} c€/kWh"
+                str_val_avec = f"{prix_ttc_moyen*100:.2f} c€/kWh" 
+                
+                col_cp1, col_cp2, col_cp3, col_cp4 = st.columns(4)
+                
+                with col_cp1:
+                    st.markdown("**1. TRI**")
+                    st.markdown(carte_indicateur("Sans Batterie", str_tri_sans, "#F5F5F5", "#616161", taille_titre=11, taille_valeur=16), unsafe_allow_html=True)
+                    st.markdown(carte_indicateur("Avec Batterie", str_tri_avec, "#E3F2FD", "#1565C0", taille_titre=11, taille_valeur=16), unsafe_allow_html=True)
+                with col_cp2:
+                    st.markdown("**2. LCOE (LCOS)**")
+                    st.markdown(carte_indicateur("Sans Batterie", str_lcos_sans, "#F5F5F5", "#616161", taille_titre=11, taille_valeur=16), unsafe_allow_html=True)
+                    st.markdown(carte_indicateur("Avec Batterie", str_lcos_avec, "#FFF3E0", "#E65100", taille_titre=11, taille_valeur=16), unsafe_allow_html=True)
+                with col_cp3:
+                    st.markdown("**3. Temps de Retour (TRB)**")
+                    st.markdown(carte_indicateur("Sans Batterie", str_trb_sans, "#F5F5F5", "#616161", taille_titre=11, taille_valeur=16), unsafe_allow_html=True)
+                    st.markdown(carte_indicateur("Avec Batterie", str_trb_avec, "#F3E5F5", "#6A1B9A", taille_titre=11, taille_valeur=16), unsafe_allow_html=True)
+                with col_cp4:
+                    st.markdown("**4. Valorisation interne**")
+                    st.markdown(carte_indicateur("Sans Batterie", str_val_sans, "#F5F5F5", "#616161", taille_titre=11, taille_valeur=16), unsafe_allow_html=True)
+                    st.markdown(carte_indicateur("Avec Batterie", str_val_avec, "#E8F5E9", "#2E7D32", taille_titre=11, taille_valeur=16), unsafe_allow_html=True)
 else:
     st.info("Bienvenue ! Veuillez importer vos fichiers CSV ou EXCEL dans le panneau latéral pour commencer l'analyse.")
  
